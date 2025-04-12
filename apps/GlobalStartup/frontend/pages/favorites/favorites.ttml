@@ -1,0 +1,44 @@
+<view class="container">
+  <!-- 头部导航栏 -->
+  <view class="header">
+    <view class="back-btn" bindtap="navigateBack">
+      <text class="back-icon">←</text>
+    </view>
+    <view class="title">我的收藏</view>
+  </view>
+
+  <!-- 收藏视频列表 -->
+  <scroll-view class="video-list" scroll-y="{{true}}" bindscrolltolower="onReachBottom">
+    <block tt:if="{{favoriteList.length > 0}}">
+      <view class="video-item" tt:for="{{favoriteList}}" tt:key="id" bindtap="navigateToVideo" data-id="{{item.id}}">
+        <view class="video-cover">
+          <image src="{{item.coverUrl}}" mode="aspectFill"></image>
+          <view class="video-duration">{{item.duration}}</view>
+        </view>
+        <view class="video-info">
+          <view class="video-title">{{item.title}}</view>
+          <view class="video-stats">
+            <view class="video-author">{{item.author.nickname}}</view>
+            <view class="video-count">{{utils.formatCount(item.playCount)}}次播放</view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 空状态展示 -->
+    <view class="empty-state" tt:if="{{favoriteList.length === 0 && !loading}}">
+      <text class="empty-icon">🌟</text>
+      <text class="empty-text">还没有收藏视频哦，快去收藏吧~</text>
+    </view>
+
+    <!-- 加载中状态 -->
+    <view class="loading" tt:if="{{loading}}">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <!-- 底部提示 -->
+    <view class="list-footer" tt:if="{{favoriteList.length > 0 && !hasMore}}">
+      <text class="footer-text">没有更多了~</text>
+    </view>
+  </scroll-view>
+</view> 

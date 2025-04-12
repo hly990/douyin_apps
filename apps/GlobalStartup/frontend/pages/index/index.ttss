@@ -1,0 +1,140 @@
+/* 首页样式 */
+
+.container {
+  padding-bottom: 120rpx; /* 确保底部有足够的空间，不被tabBar遮挡 */
+}
+
+/* 分类选择栏 */
+.category-section {
+  margin-bottom: 20rpx;
+  background-color: #ffffff;
+  padding: 10rpx 0;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.category-scroll {
+  white-space: nowrap;
+  padding: 0 20rpx;
+}
+
+.category-item {
+  display: inline-block;
+  padding: 10rpx 30rpx;
+  margin-right: 20rpx;
+  font-size: 28rpx;
+  color: #666666;
+  border-radius: 30rpx;
+  transition: all 0.3s;
+}
+
+.category-item.active {
+  color: #ffffff;
+  background-color: var(--primary-color);
+}
+
+/* 视频列表 */
+.video-list-section {
+  padding: 0 20rpx;
+}
+
+.video-list {
+  margin-bottom: 20rpx;
+}
+
+/* 加载状态 */
+.loading-status {
+  padding: 30rpx 0;
+  text-align: center;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-text {
+  color: #999999;
+  font-size: 24rpx;
+}
+
+.loading-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 10rpx;
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.no-more {
+  color: #999999;
+  font-size: 24rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.empty-icon {
+  font-size: 100rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  color: #999999;
+  font-size: 28rpx;
+}
+
+/* 底部导航栏 */
+.fixed-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100rpx;
+  background: white;
+  display: flex;
+  justify-content: space-around;
+  border-top: 1rpx solid #f1f1f1;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 9999;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 8rpx 0;
+}
+
+.tab-icon {
+  font-size: 40rpx;
+  margin-bottom: 4rpx;
+  color: #8a8a8a;
+}
+
+.tab-text {
+  font-size: 24rpx;
+  color: #8a8a8a;
+}
+
+.tab-item.active .tab-icon,
+.tab-item.active .tab-text {
+  color: #FE2C55;
+} 

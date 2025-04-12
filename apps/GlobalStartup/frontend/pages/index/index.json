@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "全球创业视频",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "navigationBarBackgroundColor": "#000000",
+  "navigationBarTextStyle": "white",
+  "usingComponents": {
+    "video-card": "../../components/videoCard/videoCard"
+  }
+} 

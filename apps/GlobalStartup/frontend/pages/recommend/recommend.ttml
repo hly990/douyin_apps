@@ -1,0 +1,90 @@
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="header">
+    <text class="header-title">为你推荐</text>
+  </view>
+  
+  <!-- 视频播放区域 - 类似抖音的上下滑动切换视频 -->
+  <swiper 
+    class="video-swiper" 
+    vertical="{{true}}" 
+    current="{{currentIndex}}" 
+    duration="300"
+    bindchange="handleSwiperChange"
+    style="height: {{screenHeight}}px">
+    <block tt:for="{{videoList}}" tt:key="id">
+      <swiper-item class="video-swiper-item">
+        <video 
+          id="video-{{item.id}}"
+          class="video-player"
+          src="{{item.videoUrl}}" 
+          object-fit="contain"
+          autoplay="{{currentIndex === index}}"
+          loop="{{true}}"
+          show-play-btn="{{false}}"
+          controls="{{false}}"
+          enable-progress-gesture="{{false}}"
+          bindplay="handleVideoPlay"
+          bindpause="handleVideoPause"
+          bindended="handleVideoEnded"
+          bindtap="handleVideoTap"
+        ></video>
+
+        <!-- 侧边操作栏 -->
+        <view class="side-bar">
+          <!-- 点赞 -->
+          <view class="action-item" bindtap="likeVideo" data-id="{{item.id}}" data-index="{{index}}">
+            <view class="action-icon {{item.isLiked ? 'active' : ''}}">
+              <text class="action-icon-inner">{{item.isLiked ? '❤️' : '♡'}}</text>
+            </view>
+            <text class="action-text">{{item.likes || 0}}</text>
+          </view>
+          
+          <!-- 收藏 -->
+          <view class="action-item" bindtap="collectVideo" data-id="{{item.id}}" data-index="{{index}}">
+            <view class="action-icon {{item.isCollected ? 'active' : ''}}">
+              <text class="action-icon-inner">{{item.isCollected ? '★' : '☆'}}</text>
+            </view>
+            <text class="action-text">收藏</text>
+          </view>
+        </view>
+
+        <!-- 自定义播放/暂停按钮 -->
+        <view class="play-pause-btn" tt:if="{{!isPlaying && currentIndex === index}}" bindtap="handleVideoTap">
+          <text class="play-icon">▶</text>
+        </view>
+      </swiper-item>
+    </block>
+  </swiper>
+  
+  <!-- 底部安全区域 -->
+  <view class="safe-area-bottom"></view>
+  
+  <!-- 加载状态 -->
+  <view class="loading-indicator" tt:if="{{isLoading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">视频加载中...</text>
+  </view>
+  
+  <!-- 空状态 -->
+  <view class="empty-state" tt:if="{{videoList.length === 0 && !isLoading}}">
+    <text class="empty-icon">📺</text>
+    <text class="empty-text">暂无推荐视频</text>
+  </view>
+  
+  <!-- 添加一个固定在底部的导航栏 -->
+  <view class="fixed-tab-bar">
+    <view class="tab-item" bindtap="navigateToIndex">
+      <view class="tab-icon">🏠</view>
+      <view class="tab-text">首页</view>
+    </view>
+    <view class="tab-item active">
+      <view class="tab-icon">🔍</view>
+      <view class="tab-text">推荐</view>
+    </view>
+    <view class="tab-item" bindtap="navigateToProfile">
+      <view class="tab-icon">👤</view>
+      <view class="tab-text">我的</view>
+    </view>
+  </view>
+</view> 

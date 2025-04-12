@@ -1,0 +1,44 @@
+<!-- components/videoCard/videoCard.ttml -->
+<view class="video-card" bindtap="onTapVideo">
+  <!-- 视频封面 -->
+  <view class="video-cover-container">
+    <image class="video-cover" src="{{videoInfo.coverUrl}}" mode="aspectFill"></image>
+    
+    <!-- 播放按钮 -->
+    <view class="play-btn-container" catchtap="playVideo">
+      <image class="play-btn" src="../../assets/icons/play.png" mode="aspectFit"></image>
+    </view>
+    
+    <!-- 视频时长 -->
+    <view class="duration-badge" tt:if="{{showDuration}}">{{formattedDuration}}</view>
+
+    <!-- 进度信息 - 用于展示"看到第几集" -->
+    <view class="progress-info" tt:if="{{showProgress}}">
+      <text>看至第{{videoInfo.watchedEpisode}}集</text>
+    </view>
+
+    <!-- 待看信息 - 用于展示"还有多少集待看" -->
+    <view class="episodes-badge" tt:if="{{videoInfo.totalEpisodes}}">
+      {{videoInfo.totalEpisodes}}集待看
+    </view>
+  </view>
+
+  <!-- 视频信息 -->
+  <view class="video-info">
+    <text class="video-title">{{videoInfo.title}}</text>
+    
+    <view class="video-meta">
+      <!-- 播放量 -->
+      <view class="video-meta-item">
+        <image class="video-meta-icon" src="../../assets/icons/play-count.png" mode="aspectFit"></image>
+        <text>{{formattedViewCount}}</text>
+      </view>
+      
+      <!-- 分类 -->
+      <view class="video-meta-item" tt:if="{{videoInfo.category}}">
+        <image class="video-meta-icon" src="../../assets/icons/category.png" mode="aspectFit"></image>
+        <text>{{videoInfo.category}}</text>
+      </view>
+    </view>
+  </view>
+</view> 

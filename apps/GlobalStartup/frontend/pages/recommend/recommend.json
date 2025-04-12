@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "推荐",
+  "navigationStyle": "custom",
+  "disableScroll": true,
+  "backgroundColor": "#000000",
+  "backgroundTextStyle": "dark",
+  "enablePullDownRefresh": true,
+  "usingComponents": {}
+} 

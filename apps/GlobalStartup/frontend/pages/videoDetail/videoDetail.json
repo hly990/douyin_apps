@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "视频详情",
+  "navigationBarBackgroundColor": "#000000",
+  "navigationBarTextStyle": "white",
+  "navigationStyle": "custom",
+  "enablePullDownRefresh": false,
+  "disableScroll": false,
+  "backgroundColor": "#000000",
+  "backgroundTextStyle": "light",
+  "usingComponents": {}
+} 

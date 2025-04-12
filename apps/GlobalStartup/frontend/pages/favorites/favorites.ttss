@@ -1,0 +1,160 @@
+/* 容器 */
+.container {
+  width: 100%;
+  height: 100vh;
+  background-color: #f8f8f8;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 头部导航栏 */
+.header {
+  height: 88rpx;
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+  position: relative;
+  border-bottom: 1rpx solid #f1f1f1;
+}
+
+.back-btn {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.back-icon {
+  font-size: 40rpx;
+  color: #333;
+}
+
+.title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 34rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+/* 视频列表 */
+.video-list {
+  flex: 1;
+  padding: 20rpx;
+}
+
+.video-item {
+  display: flex;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f1f1f1;
+  background-color: #fff;
+  margin-bottom: 20rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.video-cover {
+  width: 240rpx;
+  height: 180rpx;
+  border-radius: 8rpx;
+  overflow: hidden;
+  margin-right: 20rpx;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.video-cover image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-duration {
+  position: absolute;
+  right: 8rpx;
+  bottom: 8rpx;
+  padding: 4rpx 8rpx;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 20rpx;
+  border-radius: 4rpx;
+}
+
+.video-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10rpx 0;
+}
+
+.video-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+  line-height: 1.4;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.video-stats {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.video-author {
+  margin-bottom: 6rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  padding: 100rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-icon {
+  font-size: 100rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 加载中状态 */
+.loading {
+  padding: 40rpx 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 列表底部 */
+.list-footer {
+  padding: 30rpx 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer-text {
+  font-size: 24rpx;
+  color: #999;
+} 

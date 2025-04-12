@@ -1,0 +1,64 @@
+<!-- 首页 -->
+<view class="container">
+  <!-- 分类选择栏 -->
+  <view class="category-section">
+    <scroll-view class="category-scroll" scroll-x="{{true}}" show-scrollbar="{{false}}">
+      <view 
+        tt:for="{{categories}}" 
+        tt:key="id" 
+        class="category-item {{currentCategory === item.id ? 'active' : ''}}"
+        bindtap="switchCategory"
+        data-category="{{item.id}}"
+      >
+        {{item.name}}
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 视频列表 -->
+  <view class="video-list-section">
+    <block tt:if="{{videoList.length > 0}}">
+      <view class="video-list">
+        <block tt:for="{{videoList}}" tt:key="id">
+          <video-card 
+            videoInfo="{{item}}" 
+            bindtap="onTapVideo" 
+            bindplay="onPlayVideo"
+          ></video-card>
+        </block>
+      </view>
+      
+      <!-- 加载状态提示 -->
+      <view class="loading-status">
+        <view tt:if="{{loading}}" class="loading">
+          <text class="loading-text">加载中...</text>
+        </view>
+        <view tt:elif="{{!hasMore}}" class="no-more">
+          <text>没有更多内容了</text>
+        </view>
+      </view>
+    </block>
+    
+    <!-- 空状态 -->
+    <view tt:else class="empty-state">
+      <text class="empty-icon">📺</text>
+      <text class="empty-text">暂无相关视频</text>
+    </view>
+  </view>
+  
+  <!-- 添加一个固定在底部的导航栏 -->
+  <view class="fixed-tab-bar">
+    <view class="tab-item active">
+      <view class="tab-icon">🏠</view>
+      <view class="tab-text">首页</view>
+    </view>
+    <view class="tab-item" bindtap="navigateToRecommend">
+      <view class="tab-icon">🔍</view>
+      <view class="tab-text">推荐</view>
+    </view>
+    <view class="tab-item" bindtap="navigateToProfile">
+      <view class="tab-icon">👤</view>
+      <view class="tab-text">我的</view>
+    </view>
+  </view>
+</view> 

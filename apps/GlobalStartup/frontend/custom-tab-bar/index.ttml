@@ -1,0 +1,6 @@
+<view class="tab-bar">
+  <view tt:for="{{list}}" tt:key="index" class="tab-bar-item {{selected === index ? 'active' : ''}}" data-path="{{item.pagePath}}" data-index="{{index}}" bindtap="switchTab">
+    <view class="tab-icon">{{item.iconText}}</view>
+    <view class="tab-text">{{item.text}}</view>
+  </view>
+</view> 

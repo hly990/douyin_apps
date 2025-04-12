@@ -1,0 +1,46 @@
+<view class="container">
+  <!-- 头部导航栏 -->
+  <view class="header">
+    <view class="back-btn" bindtap="navigateBack">
+      <text class="back-icon">←</text>
+    </view>
+    <view class="title">观看历史</view>
+    <view class="clear-btn" bindtap="showClearConfirm">清空</view>
+  </view>
+
+  <!-- 历史视频列表 -->
+  <scroll-view class="video-list" scroll-y="{{true}}" bindscrolltolower="onReachBottom">
+    <block tt:if="{{historyList.length > 0}}">
+      <view class="video-item" tt:for="{{historyList}}" tt:key="id" bindtap="navigateToVideo" data-id="{{item.id}}">
+        <view class="video-cover">
+          <image src="{{item.coverUrl}}" mode="aspectFill"></image>
+          <view class="video-duration">{{item.duration}}</view>
+          <view class="watched-progress" style="width: {{item.progress || 0}}%;"></view>
+        </view>
+        <view class="video-info">
+          <view class="video-title">{{item.title}}</view>
+          <view class="video-stats">
+            <view class="video-author">{{item.author.nickname}}</view>
+            <view class="watch-time">{{item.watchTime}}</view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 空状态展示 -->
+    <view class="empty-state" tt:if="{{historyList.length === 0 && !loading}}">
+      <text class="empty-icon">🕒</text>
+      <text class="empty-text">还没有观看记录哦，去首页看看吧~</text>
+    </view>
+
+    <!-- 加载中状态 -->
+    <view class="loading" tt:if="{{loading}}">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <!-- 底部提示 -->
+    <view class="list-footer" tt:if="{{historyList.length > 0 && !hasMore}}">
+      <text class="footer-text">没有更多了~</text>
+    </view>
+  </scroll-view>
+</view> 

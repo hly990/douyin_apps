@@ -1,0 +1,66 @@
+# GlobalStartup Cursor 项目规则和见解
+
+## 项目模式
+- 使用MCP框架开发抖音小程序
+- 前后端分离架构
+- 以视频内容为核心的应用
+- 组件化UI开发方案
+
+## 文件命名规范
+- 页面文件夹: camelCase (如 videoDetail)
+- 组件文件夹: camelCase (如 videoPlayer)
+- JS文件: camelCase (如 videoService.js)
+- 样式文件: 与对应JS文件同名 (如 videoService.ttss)
+- 常量: UPPER_SNAKE_CASE (如 MAX_VIDEO_COUNT)
+- 变量/函数: camelCase (如 getUserInfo)
+- 类/组件: PascalCase (如 VideoPlayer)
+
+## 代码风格
+- 使用ES6+语法特性
+- 遵循小程序生命周期规范
+- 页面逻辑和数据处理分离
+- 使用注释说明复杂逻辑
+- 配置和常量集中管理
+- 使用async/await处理异步操作
+
+## 目录结构规范
+- pages/: 所有页面
+  - index/: 首页
+  - recommend/: 推荐页
+  - profile/: 个人中心
+  - videoDetail/: 视频详情页
+- components/: 公共组件
+  - videoPlayer/: 视频播放器
+  - commentList/: 评论列表
+  - userCard/: 用户信息卡片
+- utils/: 工具函数
+  - request.js: 网络请求
+  - format.js: 格式化工具
+  - storage.js: 存储工具
+- assets/: 静态资源
+  - icons/: 图标
+  - images/: 图片
+
+## 开发工作流
+- 先开发UI组件和页面
+- 实现前端交互逻辑
+- 对接后端API
+- 优化用户体验
+- 测试和修复问题
+
+## 性能优化规则
+- 避免频繁的setData操作
+- 合理使用页面生命周期
+- 列表使用虚拟化渲染
+- 优化图片加载和展示
+- 延迟加载非关键资源
+- 合理使用缓存机制
+
+## 业务规则
+- 视频内容必须与海外创业相关
+- 用户信息需遵循隐私保护规范
+- 评论内容需要审核机制
+- 推荐算法需考虑用户兴趣和内容质量
+- 用户行为数据需进行脱敏处理
+
+注意：此文件将随着项目进展不断更新，以捕获更多的项目模式和见解。 

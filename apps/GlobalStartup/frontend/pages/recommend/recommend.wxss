@@ -1,0 +1,163 @@
+.container {
+  background-color: #f8f8f8;
+  min-height: 100vh;
+}
+
+.header {
+  padding: 30rpx;
+  background-color: #fff;
+  border-bottom: 1rpx solid #e6e6e6;
+}
+
+.header-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.video-list {
+  padding: 20rpx;
+}
+
+.video-item {
+  margin-bottom: 30rpx;
+  background-color: #fff;
+  border-radius: 12rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+.video-cover-container {
+  position: relative;
+  width: 100%;
+  height: 400rpx;
+}
+
+.video-cover {
+  width: 100%;
+  height: 100%;
+  background-color: #f1f1f1;
+}
+
+.video-duration {
+  position: absolute;
+  bottom: 16rpx;
+  right: 16rpx;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 22rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 4rpx;
+}
+
+.video-info {
+  padding: 20rpx;
+}
+
+.video-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16rpx;
+  line-height: 1.4;
+}
+
+.video-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.author-info {
+  display: flex;
+  align-items: center;
+}
+
+.author-avatar {
+  width: 50rpx;
+  height: 50rpx;
+  border-radius: 50%;
+  margin-right: 10rpx;
+}
+
+.author-name {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.video-stats {
+  display: flex;
+}
+
+.stat-item {
+  font-size: 24rpx;
+  color: #999;
+  margin-left: 20rpx;
+}
+
+.video-desc {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.loading-status {
+  padding: 30rpx 0;
+  text-align: center;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid #f3f3f3;
+  border-top: 4rpx solid #ff4757;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10rpx;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text, .no-more text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.empty-icon {
+  width: 200rpx;
+  height: 200rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 30rpx;
+  color: #666;
+  margin-bottom: 10rpx;
+}
+
+.empty-sub-text {
+  font-size: 24rpx;
+  color: #999;
+} 

@@ -1,0 +1,89 @@
+<view class="profile-container">
+  <!-- 未登录状态 -->
+  <view class="not-login" tt:if="{{!isLogin}}">
+    <image class="login-icon" src="../../assets/icons/user-placeholder.png" mode="aspectFit"></image>
+    <view class="login-tip">登录后查看您的个人资料</view>
+    <button class="login-btn" bindtap="goToLogin">立即登录</button>
+  </view>
+
+  <!-- 已登录状态 -->
+  <block tt:else>
+    <!-- 标签切换 -->
+    <view class="tab-container">
+      <view class="tab-item {{activeTab === 'favorites' ? 'active' : ''}}" 
+            bindtap="switchTab" 
+            data-tab="favorites">
+        <text>收藏列表</text>
+      </view>
+      <view class="tab-item {{activeTab === 'history' ? 'active' : ''}}" 
+            bindtap="switchTab" 
+            data-tab="history">
+        <text>看过列表</text>
+      </view>
+    </view>
+    
+    <!-- 操作栏 - 清空历史按钮 -->
+    <view class="action-bar" tt:if="{{activeTab === 'history'}}">
+      <view class="clear-history-btn" bindtap="clearHistory">
+        <text class="clear-icon">🗑️</text>
+        <text class="clear-text">清空历史记录</text>
+      </view>
+    </view>
+    
+    <!-- 视频列表 -->
+    <view class="video-grid" tt:if="{{videos.length > 0}}">
+      <view class="video-item" 
+            tt:for="{{videos}}" 
+            tt:key="id" 
+            bindtap="onTapVideo" 
+            data-id="{{item.id}}">
+        <view class="video-cover-container">
+          <image class="video-cover" src="{{item.coverUrl}}" mode="aspectFill"></image>
+          <view class="video-duration">{{utils.formatDuration(item.duration)}}</view>
+          <view class="video-play-count">
+            <text class="play-icon">▶</text>
+            <text>{{utils.formatCount(item.playCount)}}</text>
+          </view>
+          <!-- 观看进度条（仅在历史记录中显示） -->
+          <view class="watch-progress" tt:if="{{activeTab === 'history' && item.progress}}" style="width: {{item.progress}}%;"></view>
+        </view>
+        <view class="video-title">{{item.title}}</view>
+      </view>
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty-state" tt:elif="{{!loading}}">
+      <image class="empty-icon" src="../../assets/icons/empty-video.png" mode="aspectFit"></image>
+      <view class="empty-text">
+        {{activeTab === 'favorites' ? '暂无收藏视频' : '暂无观看记录'}}
+      </view>
+    </view>
+    
+    <!-- 加载状态 -->
+    <view class="loading-container" tt:if="{{loading}}">
+      <view class="loading-spinner"></view>
+      <view class="loading-text">加载中...</view>
+    </view>
+    
+    <!-- 加载更多 -->
+    <view class="load-more" tt:if="{{!loading && ((activeTab === 'favorites' && !hasMoreFavorites) || (activeTab === 'history' && !hasMoreHistory)) && videos.length > 0}}">
+      <text>没有更多内容了</text>
+    </view>
+  </block>
+  
+  <!-- 添加一个固定在底部的导航栏 -->
+  <view class="profile-tab-bar">
+    <view class="profile-tab-item" bindtap="navigateToIndex">
+      <view class="profile-tab-icon">🏠</view>
+      <view class="profile-tab-text">首页</view>
+    </view>
+    <view class="profile-tab-item" bindtap="navigateToRecommend">
+      <view class="profile-tab-icon">🔍</view>
+      <view class="profile-tab-text">推荐</view>
+    </view>
+    <view class="profile-tab-item profile-tab-active">
+      <view class="profile-tab-icon">👤</view>
+      <view class="profile-tab-text">我的</view>
+    </view>
+  </view>
+</view> 

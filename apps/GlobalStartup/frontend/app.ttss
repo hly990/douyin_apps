@@ -1,0 +1,169 @@
+/**
+ * 全球创业视频小程序全局样式
+ */
+
+/* 颜色变量 */
+page {
+  --primary-color: #FE2C55;  /* 抖音红 */
+  --secondary-color: #161823;
+  --text-color: #333333;
+  --text-color-light: #999999;
+  --background-color: #f8f8f8;
+  --border-color: #eeeeee;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+}
+
+/* 全局样式 */
+page {
+  background-color: var(--background-color);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-color);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 容器样式 */
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 0 20rpx;
+  box-sizing: border-box;
+}
+
+/* 文本样式 */
+.text-primary {
+  color: var(--primary-color);
+}
+
+.text-secondary {
+  color: var(--secondary-color);
+}
+
+.text-light {
+  color: var(--text-color-light);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* 按钮样式 */
+.btn {
+  display: inline-block;
+  margin: 15rpx 0;
+  padding: 0 30rpx;
+  font-size: 28rpx;
+  line-height: 80rpx;
+  text-align: center;
+  border-radius: 4rpx;
+  overflow: hidden;
+  color: #ffffff;
+  background-color: var(--primary-color);
+  border: 1rpx solid var(--primary-color);
+}
+
+.btn-default {
+  color: var(--text-color);
+  background-color: #ffffff;
+  border: 1rpx solid var(--border-color);
+}
+
+.btn-block {
+  display: block;
+  width: 100%;
+}
+
+/* 边距和间隔 */
+.mt-10 {
+  margin-top: 10rpx;
+}
+
+.mb-10 {
+  margin-bottom: 10rpx;
+}
+
+.ml-10 {
+  margin-left: 10rpx;
+}
+
+.mr-10 {
+  margin-right: 10rpx;
+}
+
+.p-10 {
+  padding: 10rpx;
+}
+
+.pt-10 {
+  padding-top: 10rpx;
+}
+
+.pb-10 {
+  padding-bottom: 10rpx;
+}
+
+/* 卡片样式 */
+.card {
+  background-color: #ffffff;
+  border-radius: 8rpx;
+  margin-bottom: 20rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+/* 视频卡片样式 */
+.video-card {
+  position: relative;
+  margin-bottom: 20rpx;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.video-cover {
+  width: 100%;
+  height: 400rpx;
+  background-color: #000000;
+}
+
+.video-info {
+  padding: 15rpx;
+  background-color: #ffffff;
+}
+
+.video-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 10rpx;
+}
+
+.video-meta {
+  display: flex;
+  font-size: 24rpx;
+  color: var(--text-color-light);
+}
+
+.video-meta-item {
+  margin-right: 20rpx;
+  display: flex;
+  align-items: center;
+}
+
+.video-meta-icon {
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 6rpx;
+} 

@@ -1,0 +1,56 @@
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="header">
+    <text class="header-title">为你推荐</text>
+  </view>
+  
+  <!-- 视频列表 -->
+  <view class="video-list">
+    <block wx:if="{{recommendVideos.length > 0}}">
+      <view class="video-item" wx:for="{{recommendVideos}}" wx:key="id" bindtap="onTapVideo" data-id="{{item.id}}">
+        <!-- 视频封面 -->
+        <view class="video-cover-container">
+          <image class="video-cover" src="{{item.coverUrl}}" mode="aspectFill"></image>
+          <view class="video-duration">{{utils.formatDuration(item.duration)}}</view>
+        </view>
+        
+        <!-- 视频信息 -->
+        <view class="video-info">
+          <view class="video-title">{{item.title}}</view>
+          
+          <view class="video-meta">
+            <view class="author-info">
+              <image class="author-avatar" src="{{item.author.avatarUrl}}" mode="aspectFill"></image>
+              <text class="author-name">{{item.author.nickname}}</text>
+            </view>
+            
+            <view class="video-stats">
+              <text class="stat-item">{{item.playCount || 0}} 播放</text>
+              <text class="stat-item">{{item.likeCount || 0}} 赞</text>
+            </view>
+          </view>
+          
+          <view class="video-desc" wx:if="{{item.description}}">{{item.description}}</view>
+        </view>
+      </view>
+      
+      <!-- 加载状态 -->
+      <view class="loading-status">
+        <view class="loading" wx:if="{{loading}}">
+          <view class="loading-spinner"></view>
+          <text class="loading-text">加载中...</text>
+        </view>
+        <view class="no-more" wx:elif="{{!hasMore}}">
+          <text>没有更多内容了</text>
+        </view>
+      </view>
+    </block>
+    
+    <!-- 空状态 -->
+    <view class="empty-state" wx:else>
+      <image class="empty-icon" src="../../assets/icons/empty.png" mode="aspectFit"></image>
+      <text class="empty-text">暂无推荐内容</text>
+      <text class="empty-sub-text">下拉刷新试试看</text>
+    </view>
+  </view>
+</view> 

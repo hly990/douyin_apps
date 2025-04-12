@@ -1,0 +1,143 @@
+/* 容器 */
+.container {
+  padding: 0 20rpx;
+  background-color: #f8f8f8;
+  min-height: 100vh;
+}
+
+/* 话题头部 */
+.topic-header {
+  background-color: #fff;
+  border-radius: 12rpx;
+  padding: 30rpx;
+  margin: 20rpx 0;
+}
+
+.topic-title {
+  font-size: 40rpx;
+  font-weight: 600;
+  margin-bottom: 15rpx;
+}
+
+.topic-desc {
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 20rpx;
+}
+
+/* 话题统计 */
+.topic-stats {
+  display: flex;
+  margin: 20rpx 0;
+}
+
+.topic-stat-item {
+  margin-right: 40rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-count {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 5rpx;
+}
+
+/* 话题操作按钮 */
+.topic-actions {
+  display: flex;
+  margin-top: 20rpx;
+}
+
+.action-btn {
+  flex: 1;
+  height: 70rpx;
+  font-size: 28rpx;
+  margin: 0 10rpx;
+  border-radius: 35rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  outline: none;
+}
+
+.follow-btn {
+  background-color: #ff385c;
+  color: #fff;
+  margin-left: 0;
+}
+
+.follow-btn.following {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 1rpx solid #ddd;
+}
+
+.share-btn {
+  background-color: #f5f5f5;
+  color: #666;
+  margin-right: 0;
+}
+
+/* 视频列表 */
+.video-list {
+  margin: 20rpx 0;
+}
+
+.video-card-container {
+  margin-bottom: 20rpx;
+  background-color: #fff;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 0;
+  background-color: #fff;
+  border-radius: 12rpx;
+}
+
+.empty-icon {
+  font-size: 100rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* 加载状态 */
+.loading-status {
+  padding: 30rpx 0;
+  text-align: center;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-text {
+  color: #999;
+  font-size: 24rpx;
+}
+
+.no-more {
+  color: #999;
+  font-size: 24rpx;
+} 
