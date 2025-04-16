@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "video_collections",
+  "info": {
+    "singularName": "video-collection",
+    "pluralName": "video-collections",
+    "displayName": "视频收藏",
+    "description": "存储用户收藏视频的关系"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": "记录用户收藏视频关系"
+  },
+  "attributes": {
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::user.user",
+      "inversedBy": "collections"
+    },
+    "video": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::video.video"
+    },
+    "collectedAt": {
+      "type": "datetime",
+      "default": "now"
+    }
+  }
+} 

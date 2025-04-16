@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "video_likes",
+  "info": {
+    "singularName": "video-like",
+    "pluralName": "video-likes",
+    "displayName": "视频点赞",
+    "description": "存储用户点赞视频的关系"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": "记录用户点赞视频关系"
+  },
+  "attributes": {
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::user.user",
+      "inversedBy": "likes"
+    },
+    "video": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::video.video"
+    },
+    "likedAt": {
+      "type": "datetime",
+      "default": "now"
+    }
+  }
+} 

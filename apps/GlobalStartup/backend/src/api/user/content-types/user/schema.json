@@ -1,0 +1,93 @@
+{
+  "kind": "collectionType",
+  "collectionName": "users",
+  "info": {
+    "singularName": "user",
+    "pluralName": "users",
+    "displayName": "App用户",
+    "description": "抖音小程序的用户表"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "username": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 3
+    },
+    "nickname": {
+      "type": "string"
+    },
+    "password": {
+      "type": "password",
+      "required": true,
+      "private": true,
+      "minLength": 6
+    },
+    "email": {
+      "type": "email",
+      "unique": true
+    },
+    "phone": {
+      "type": "string",
+      "unique": true
+    },
+    "avatarUrl": {
+      "type": "string",
+      "default": "https://via.placeholder.com/150"
+    },
+    "lastLoginAt": {
+      "type": "datetime"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "active",
+        "suspended",
+        "inactive"
+      ],
+      "default": "active"
+    },
+    "openid": {
+      "type": "string",
+      "unique": true,
+      "description": "抖音小程序的用户唯一标识"
+    },
+    "videos": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::video.video",
+      "mappedBy": "author"
+    },
+    "likes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::video.video"
+    },
+    "collections": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::video.video"
+    },
+    "followers": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::user.user",
+      "inversedBy": "following"
+    },
+    "following": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::user.user",
+      "inversedBy": "followers"
+    },
+    "bio": {
+      "type": "text"
+    },
+    "location": {
+      "type": "string"
+    }
+  }
+} 

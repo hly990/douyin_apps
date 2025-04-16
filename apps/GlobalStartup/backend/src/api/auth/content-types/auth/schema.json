@@ -1,0 +1,27 @@
+{
+  "kind": "singleType",
+  "collectionName": "auths",
+  "info": {
+    "singularName": "auth",
+    "pluralName": "auths",
+    "displayName": "认证",
+    "description": "认证相关设置"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "default": "认证服务"
+    },
+    "description": {
+      "type": "text",
+      "default": "提供登录、注册、Token验证等服务"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+} 

@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "auth_tests",
+  "info": {
+    "singularName": "auth-test",
+    "pluralName": "auth-tests",
+    "displayName": "认证测试",
+    "description": "用于测试认证的简单内容类型"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "testType": {
+      "type": "enumeration",
+      "enum": [
+        "public",
+        "private",
+        "mixed"
+      ],
+      "default": "public"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::user.user"
+    }
+  }
+} 
