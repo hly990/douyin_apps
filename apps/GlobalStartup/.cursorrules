@@ -1,0 +1,56 @@
+# GlobalStartup 项目规则与模式
+
+## 视频数据处理模式
+- 所有视频对象处理必须使用 `videoUtil.processVideo()` 函数标准化
+- 视频URL提取必须使用 `videoUtil.getVideoUrl()` 函数，确保一致性
+- 视频列表批量处理使用 `videoUtil.processVideoList()` 函数
+
+## 视频数据标准格式
+```js
+{
+  id: Number,
+  videoUrl: String,
+  coverUrl: String,
+  title: String,
+  description: String,
+  author: {
+    id: Number,
+    nickname: String,
+    avatarUrl: String,
+    isFollowing: Boolean
+  },
+  likes: Number,
+  comments: Number,
+  shares: Number,
+  isLiked: Boolean,
+  isCollected: Boolean,
+  views: Number,
+  duration: Number,
+  createdAt: String
+}
+```
+
+## API响应处理模式
+- 支持多种数据结构：直接响应、带有attributes的Strapi响应、嵌套data的响应
+- 提供明确的错误处理
+- 为网络错误提供备用数据
+- 通过本地存储实现数据持久化和离线支持
+
+## 异常处理策略
+- URL提取失败时使用默认视频
+- API调用失败时优先使用缓存数据
+- 缓存不可用时提供明确的错误提示
+- 记录详细的日志信息用于调试
+
+## 性能优化准则
+- 减少重复API调用
+- 优先从缓存加载数据
+- 批量处理视频数据而不是逐个处理
+- 预处理视频URL以减少播放时的延迟
+
+## 编码风格
+- 使用驼峰命名法
+- 方法和变量名应有明确的语义
+- 使用中文作为用户界面文本和注释
+- 提供适当的注释解释复杂逻辑
+- 使用模块化设计分离功能 

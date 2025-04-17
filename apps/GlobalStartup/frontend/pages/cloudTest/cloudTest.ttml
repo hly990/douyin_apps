@@ -1,0 +1,63 @@
+<!-- 云数据库测试页面 -->
+<view class="container">
+  <view class="header">
+    <button class="back-button" bindtap="navigateToHome">返回首页</button>
+    <view class="title">云数据库测试</view>
+  </view>
+  
+  <!-- 测试云函数 -->
+  <view class="section">
+    <view class="section-title">测试云函数调用</view>
+    <button class="test-button" bindtap="testCloudFunction">云函数测试</button>
+    <view class="result {{cloudFunctionSuccess ? 'success' : 'fail'}}">
+      <text tt:if="{{cloudFunctionSuccess}}">测试成功</text>
+      <text tt:else>测试失败</text>
+      <text class="result-data" tt:if="{{cloudFunctionResult}}">{{cloudFunctionResult}}</text>
+    </view>
+  </view>
+  
+  <!-- 测试直接云数据库操作 -->
+  <view class="section">
+    <view class="section-title">测试直接云数据库操作</view>
+    <button class="test-button" bindtap="testDbQuery">查询数据库</button>
+    <button class="test-button" bindtap="testDbAdd">添加测试数据</button>
+    <view class="result {{dbSuccess ? 'success' : 'fail'}}">
+      <text tt:if="{{dbSuccess}}">测试成功</text>
+      <text tt:else>测试失败</text>
+      <text class="result-data" tt:if="{{dbResult}}">{{dbResult}}</text>
+    </view>
+  </view>
+  
+  <!-- 测试云存储操作 -->
+  <view class="section">
+    <view class="section-title">测试云存储操作</view>
+    <button class="test-button" bindtap="testCloudStorage">获取云存储文件列表</button>
+    <view class="result {{storageSuccess ? 'success' : 'fail'}}">
+      <text tt:if="{{storageSuccess}}">测试成功</text>
+      <text tt:else>测试失败</text>
+      <text class="result-data" tt:if="{{storageResult}}">{{storageResult}}</text>
+    </view>
+  </view>
+  
+  <!-- 外部API测试 -->
+  <view class="section">
+    <view class="section-title">外部API测试</view>
+    <button class="test-button" bindtap="navigateToExternalApiDemo">外部API访问演示</button>
+    <text class="description">测试访问外部API的配置和功能</text>
+  </view>
+  
+  <!-- 云环境信息 -->
+  <view class="section">
+    <view class="section-title">云环境信息</view>
+    <view class="env-info">
+      <text>云环境ID: {{envId || '未设置'}}</text>
+    </view>
+    
+    <!-- 云开发诊断 -->
+    <view class="section-title">环境诊断</view>
+    <view class="diagnostic-info">
+      <button class="test-button" bindtap="testCloudStorage">运行云开发诊断</button>
+      <text>点击上方按钮，运行完整云开发环境诊断</text>
+    </view>
+  </view>
+</view> 

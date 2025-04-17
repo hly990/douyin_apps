@@ -24,7 +24,9 @@ Component({
     // 格式化后的播放量
     formattedViewCount: '0',
     // 格式化后的时长
-    formattedDuration: '00:00'
+    formattedDuration: '00:00',
+    // 导航锁
+    isNavigating: false
   },
 
   lifetimes: {
@@ -58,12 +60,38 @@ Component({
     onTapVideo() {
       const { videoInfo } = this.properties;
       
+      // 防止重复点击
+      if (this.isNavigating) {
+        console.log('导航正在进行中，忽略点击');
+        return;
+      }
+      
+      // 设置导航锁
+      this.isNavigating = true;
+      
       // 触发点击事件，传递视频信息给父组件
       this.triggerEvent('tap', { videoInfo });
       
-      // 跳转到视频详情页
-      tt.navigateTo({
-        url: `/pages/videoDetail/videoDetail?id=${videoInfo.id}`
+      // 确保数据完整性
+      if (!videoInfo || !videoInfo.id) {
+        console.error('视频信息不完整，无法导航');
+        this.isNavigating = false;
+        return;
+      }
+      
+      // 跳转到视频详情页，使用redirectTo代替navigateTo
+      tt.redirectTo({
+        url: `/pages/videoDetail/videoDetail?id=${videoInfo.id}&videoData=${encodeURIComponent(JSON.stringify(videoInfo))}`,
+        complete: () => {
+          // 导航完成后释放锁
+          setTimeout(() => {
+            this.isNavigating = false;
+          }, 500); // 500ms节流时间
+        },
+        fail: (err) => {
+          console.error('导航失败:', err);
+          this.isNavigating = false;
+        }
       });
     },
 

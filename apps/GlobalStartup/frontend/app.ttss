@@ -2,6 +2,9 @@
  * 全球创业视频小程序全局样式
  */
 
+/* 引入图标样式 */
+@import './assets/styles/icons.ttss';
+
 /* 颜色变量 */
 page {
   --primary-color: #FE2C55;  /* 抖音红 */

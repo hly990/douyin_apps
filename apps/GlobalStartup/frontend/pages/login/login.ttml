@@ -1,0 +1,45 @@
+<view class="login-container">
+  <!-- 顶部 Logo 区域 -->
+  <view class="logo-area">
+    <image class="app-logo" src="{{appInfo.logo}}" mode="aspectFill" />
+    <view class="app-info">
+      <text class="app-name">{{appInfo.name}}</text>
+      <text class="app-slogan">{{appInfo.slogan}}</text>
+    </view>
+  </view>
+
+  <!-- 登录按钮区域 -->
+  <view class="login-btn-area">
+    <button 
+      class="login-btn {{isLoading ? 'loading' : ''}}" 
+      bindtap="handleLogin" 
+      hover-class="login-btn-hover"
+      loading="{{isLoading}}"
+    >
+      抖音登录
+    </button>
+  </view>
+
+  <!-- 权益展示区域 -->
+  <view class="benefits-container">
+    <view class="benefits-title">登录后即可享受</view>
+    <view class="benefits-list">
+      <view class="benefit-item" tt:for="{{benefits}}" tt:key="index">
+        <text class="benefit-icon icon-{{item.icon}}"></text>
+        <text class="benefit-text">{{item.text}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部区域 -->
+  <view class="bottom-area">
+    <text class="skip-login" bindtap="skipLogin" tt:if="{{!hideSkip}}">暂不登录</text>
+    
+    <view class="agreement-area">
+      <text class="agreement-text">登录即代表同意</text>
+      <text class="agreement-link" bindtap="goToAgreement">《用户协议》</text>
+      <text class="agreement-text">和</text>
+      <text class="agreement-link" bindtap="goToPrivacy">《隐私政策》</text>
+    </view>
+  </view>
+</view> 

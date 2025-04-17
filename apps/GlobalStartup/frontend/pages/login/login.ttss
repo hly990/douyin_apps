@@ -1,0 +1,138 @@
+.login-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #fff;
+  padding: 40rpx;
+}
+
+/* 顶部 Logo 区域 */
+.logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 0;
+  margin-top: 80rpx;
+}
+
+.app-logo {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 24rpx;
+}
+
+.app-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20rpx;
+}
+
+.app-name {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10rpx;
+}
+
+.app-slogan {
+  font-size: 28rpx;
+  color: #666;
+}
+
+/* 登录按钮区域 */
+.login-btn-area {
+  margin-top: 60rpx;
+}
+
+.login-btn {
+  width: 100%;
+  height: 88rpx;
+  background-color: #FE2C55;
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 500;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  outline: none;
+}
+
+.login-btn-hover {
+  background-color: #e62a4e;
+  opacity: 0.9;
+}
+
+.login-btn.loading {
+  opacity: 0.8;
+}
+
+/* 权益展示区域 */
+.benefits-container {
+  margin-top: 80rpx;
+}
+
+.benefits-title {
+  font-size: 28rpx;
+  color: #666;
+  text-align: center;
+  margin-bottom: 40rpx;
+}
+
+.benefits-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.benefit-item {
+  width: 45%;
+  display: flex;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.benefit-icon {
+  color: #FE2C55;
+  font-size: 34rpx;
+  margin-right: 12rpx;
+}
+
+.benefit-text {
+  font-size: 26rpx;
+  color: #333;
+}
+
+/* 底部区域 */
+.bottom-area {
+  margin-top: auto;
+  padding: 40rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.skip-login {
+  font-size: 28rpx;
+  color: #666;
+  padding: 20rpx;
+  margin-bottom: 30rpx;
+}
+
+.agreement-area {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.agreement-text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.agreement-link {
+  font-size: 24rpx;
+  color: #FE2C55;
+} 

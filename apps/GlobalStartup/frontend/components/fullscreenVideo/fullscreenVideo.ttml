@@ -1,0 +1,94 @@
+<!-- components/fullscreenVideo/fullscreenVideo.ttml -->
+<view class="container">
+  <!-- 视频播放区域 -->
+  <view class="fullscreen-video-container">
+    <video 
+      id="myVideo"
+      src="{{videoUrl}}"
+      loop="{{true}}"
+      controls="{{false}}"
+      object-fit="cover"
+      style="width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 999;"
+      bindplay="onPlay"
+      bindpause="onPause"
+      bindended="onEnded"
+      binderror="onError"
+      bindtimeupdate="onTimeUpdate"
+      bindwaiting="onWaiting"
+      bindtap="onVideoTap"
+      bindtouchstart="onTouchStart"
+      bindtouchmove="onTouchMove"
+      bindtouchend="onTouchEnd"
+    ></video>
+
+    <!-- Volume Indicator -->
+    <view class="indicator volume-indicator {{showVolumeIndicator ? '' : 'hidden'}}">
+      <image class="indicator-icon" src="/assets/icons/volume.png" />
+      <view class="indicator-bar">
+        <view class="indicator-fill" style="height: {{volume * 100}}%"></view>
+      </view>
+    </view>
+
+    <!-- Brightness Indicator -->
+    <view class="indicator brightness-indicator {{showBrightnessIndicator ? '' : 'hidden'}}">
+      <image class="indicator-icon" src="/assets/icons/brightness.png" />
+      <view class="indicator-bar">
+        <view class="indicator-fill" style="height: {{brightness * 100}}%"></view>
+      </view>
+    </view>
+
+    <!-- 返回按钮 -->
+    <view class="back-btn" bindtap="onBack">
+      <image src="/assets/icons/back.png" mode="aspectFit" />
+    </view>
+
+    <!-- 侧边操作栏 -->
+    <view class="side-bar">
+      <view class="action-item">
+        <view class="action-icon" bindtap="onLike">
+          <image class="action-icon-inner" src="{{isLiked ? '/assets/icons/like-filled.png' : '/assets/icons/like.png'}}" mode="aspectFit" />
+        </view>
+        <text class="action-text">{{likeCount}}</text>
+      </view>
+      <view class="action-item">
+        <view class="action-icon" bindtap="onComment">
+          <image class="action-icon-inner" src="/assets/icons/comment.png" mode="aspectFit" />
+        </view>
+        <text class="action-text">{{commentCount}}</text>
+      </view>
+      <view class="action-item">
+        <view class="action-icon" bindtap="onShare">
+          <image class="action-icon-inner" src="/assets/icons/share.png" mode="aspectFit" />
+        </view>
+        <text class="action-text">分享</text>
+      </view>
+    </view>
+
+    <!-- 视频信息 -->
+    <view class="video-info">
+      <text class="title">{{videoTitle}}</text>
+      <text class="author">@{{authorName}}</text>
+      <text class="description">{{videoDescription}}</text>
+    </view>
+
+    <!-- 自定义播放/暂停按钮 -->
+    <view class="play-pause-btn" tt:if="{{!isPlaying && !isLoading && !hasError}}" bindtap="togglePlay">
+      <image src="/assets/icons/play.png" mode="aspectFit" />
+    </view>
+
+    <!-- 加载中 -->
+    <view class="loading-indicator" tt:if="{{isLoading}}">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <!-- 错误提示 -->
+    <view class="error-container" tt:if="{{hasError}}">
+      <view class="error-box">
+        <text class="error-icon">!</text>
+        <text class="error-message">{{errorMessage || '视频加载失败'}}</text>
+        <button class="retry-button" bindtap="retryLoad">重试</button>
+      </view>
+    </view>
+  </view>
+</view> 

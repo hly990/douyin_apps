@@ -1,15 +1,17 @@
 const request = require('../../utils/request');
 const cloud = require('../../utils/cloud');
+const externalApi = require('../../utils/externalApi');
+const config = require('../../config');
 
 Page({
   data: {
     // 视频分类
     categories: [
-      { id: 'all', name: '全部' },
-      { id: 'startup', name: '创业故事' },
-      { id: 'tech', name: '科技创新' },
-      { id: 'finance', name: '融资投资' },
-      { id: 'global', name: '海外市场' }
+      // { id: 'all', name: '全部' },
+      // { id: 'startup', name: '创业故事' },
+      // { id: 'tech', name: '科技创新' },
+      // { id: 'finance', name: '融资投资' },
+      // { id: 'global', name: '海外市场' }
     ],
     // 当前选中的分类
     currentCategory: 'all',
@@ -24,7 +26,7 @@ Page({
     // 每页数量
     pageSize: 10,
     // 是否使用模拟数据（实际开发中设为false）
-    useMockData: true
+    useMockData: config.useMockData
   },
 
   // 生命周期函数--监听页面加载
@@ -37,9 +39,19 @@ Page({
   onShow: function() {
     // 更新自定义tabBar选中状态
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({
-        selected: 0
-      });
+      const app = getApp();
+      if (app.globalData.tabBarList && app.globalData.tabBarList.length > 0) {
+        // 使用App中设置的tabBarList
+        this.getTabBar().setData({
+          selected: 0,
+          list: app.globalData.tabBarList
+        });
+      } else {
+        // 仅更新选中状态
+        this.getTabBar().setData({
+          selected: 0
+        });
+      }
     }
   },
 
@@ -74,50 +86,108 @@ Page({
         }
       }, 500);
     } else {
-      // 从云函数获取视频列表
-      const params = {
-        category: this.data.currentCategory === 'all' ? '' : this.data.currentCategory,
-        page: loadMore ? this.data.page : 1,
-        pageSize: this.data.pageSize
+      // 构建查询参数
+      const queryParams = {
+        'pagination[page]': loadMore ? this.data.page : 1,
+        'pagination[pageSize]': this.data.pageSize,
+        'populate': '*'
       };
-
-      cloud.callFunction('getVideoList', params)
-        .then(res => {
-          if (res.success) {
-            if (loadMore) {
-              // 加载更多，将新数据追加到现有列表
-              this.setData({
-                videoList: [...this.data.videoList, ...res.data.list],
-                page: params.page + 1,
-                loading: false,
-                hasMore: res.data.pagination.hasMore
-              });
-            } else {
-              // 首次加载或切换分类，直接替换数据
-              this.setData({
-                videoList: res.data.list,
-                page: 2, // 第一页数据加载完成，准备加载第二页
-                loading: false,
-                hasMore: res.data.pagination.hasMore
-              });
+      
+      // 如果选择了特定分类，添加分类过滤
+      if (this.data.currentCategory !== 'all') {
+        queryParams['filters[category][name][$eq]'] = this.getCategoryName(this.data.currentCategory);
+      }
+      
+      // 使用API获取视频列表
+      const apiUrl = `${config.apiBaseUrl}videos`;
+      console.log('请求API地址:', apiUrl);
+      console.log('请求参数:', queryParams);
+      
+      externalApi.callUrl(apiUrl, {
+        data: queryParams
+      })
+      .then(res => {
+        console.log('API响应数据:', res);
+        
+        if (res && res.data) {
+          // 处理返回的数据
+          const videos = res.data.map(item => {
+            try {
+              // 直接获取数据中的字段，不通过attributes
+              return {
+                id: item.id,
+                title: item.title || '未命名视频',
+                coverUrl: item.coverUrl || 'https://via.placeholder.com/600x800/333333/FFFFFF?text=视频封面',
+                views: item.views || 0,
+                duration: item.duration || 0,
+                category: item.category || '未分类',
+                watchedEpisode: item.watchedEpisode || 1,
+                totalEpisodes: item.totalEpisodes || 1,
+                // 添加一些额外信息以便调试
+                url: item.url,
+                createAt: item.createAt
+              };
+            } catch (error) {
+              console.error('处理视频数据出错:', item, error);
+              // 返回默认数据，防止整个列表因一个项目出错而失败
+              return {
+                id: item.id || 0,
+                title: '数据解析错误',
+                coverUrl: 'https://via.placeholder.com/600x800/ff0000/FFFFFF?text=数据错误',
+                views: 0,
+                duration: 0,
+                category: '未分类'
+              };
             }
+          });
+          
+          console.log('处理后的视频数据:', videos);
+          
+          if (loadMore) {
+            // 加载更多，将新数据追加到现有列表
+            this.setData({
+              videoList: [...this.data.videoList, ...videos],
+              page: this.data.page + 1,
+              loading: false,
+              hasMore: res.meta?.pagination?.page < res.meta?.pagination?.pageCount
+            });
           } else {
-            this.setData({ loading: false });
-            tt.showToast({
-              title: res.error || '获取视频列表失败',
-              icon: 'none'
+            // 首次加载或切换分类，直接替换数据
+            this.setData({
+              videoList: videos,
+              page: 2, // 第一页数据加载完成，准备加载第二页
+              loading: false,
+              hasMore: res.meta?.pagination?.page < res.meta?.pagination?.pageCount
             });
           }
-        })
-        .catch(err => {
-          console.error('获取视频列表失败', err);
+        } else {
           this.setData({ loading: false });
           tt.showToast({
             title: '获取视频列表失败',
             icon: 'none'
           });
+        }
+      })
+      .catch(err => {
+        console.error('获取视频列表失败', err);
+        this.setData({ loading: false });
+        tt.showToast({
+          title: '获取视频列表失败',
+          icon: 'none'
         });
+      });
     }
+  },
+  
+  // 获取分类名称
+  getCategoryName: function(categoryId) {
+    const categoryMap = {
+      // 'startup': '创业故事',
+      // 'tech': '科技创新',
+      // 'finance': '融资投资',
+      // 'global': '海外市场'
+    };
+    return categoryMap[categoryId] || '';
   },
 
   // 获取模拟视频数据
@@ -166,10 +236,10 @@ Page({
     // 根据当前选中的分类过滤数据
     if (this.data.currentCategory !== 'all') {
       const categoryMapping = {
-        'startup': '创业故事',
-        'tech': '科技创新',
-        'finance': '融资投资',
-        'global': '海外市场'
+        // 'startup': '创业故事',
+        // 'tech': '科技创新',
+        // 'finance': '融资投资',
+        // 'global': '海外市场'
       };
       return mockVideos.filter(video => video.category === categoryMapping[this.data.currentCategory]);
     }
@@ -236,13 +306,119 @@ Page({
   // 添加导航相关方法
   navigateToRecommend: function() {
     tt.switchTab({
-      url: '/pages/recommend/recommend'
+      url: '/pages/recommend/recommend',
+      success: () => {
+        console.log('成功切换到推荐页');
+      },
+      fail: (err) => {
+        console.error('切换到推荐页失败', err);
+      }
     });
   },
-
+  
   navigateToProfile: function() {
     tt.switchTab({
       url: '/pages/profile/profile'
+    });
+  },
+  
+  // 点击视频，跳转到详情页
+  navigateToVideo: function(e) {
+    const videoId = e.currentTarget.dataset.id;
+    const videoData = e.currentTarget.dataset.video;
+    
+    console.log('准备跳转到视频:', videoData);
+    
+    if (!videoId || !videoData) {
+      console.error('视频数据不完整');
+      tt.showToast({
+        title: '视频数据不完整',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 确保视频数据包含必要的字段
+    if (!videoData.url) {
+      console.error('视频缺少URL');
+      tt.showToast({
+        title: '视频地址无效',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 使用 redirectTo 替换当前页面，这样返回时直接回到首页
+    tt.redirectTo({
+      url: `/pages/videoDetail/videoDetail?id=${videoId}&videoData=${encodeURIComponent(JSON.stringify(videoData))}`,
+      success: () => {
+        console.log('成功跳转到视频详情页');
+      },
+      fail: (err) => {
+        console.error('跳转视频详情页失败', err);
+        tt.showToast({
+          title: '视频加载失败',
+          icon: 'none'
+        });
+      }
+    });
+  },
+
+  // 获取视频列表
+  fetchVideoList: function(isRefresh = false) {
+    if (this.data.loading && !isRefresh) return;
+    
+    const page = isRefresh ? 1 : this.data.pagination.current + 1;
+    
+    this.setData({ loading: true });
+    
+    api.getVideoList({
+      category: this.data.currentCategory,
+      page: page,
+      pageSize: 10,
+      success: (res) => {
+        if (res.code === 0 && res.data) {
+          let videoList = res.data.list || [];
+          let oldList = this.data.videoList || [];
+          
+          // 如果是刷新，则替换列表；否则追加
+          const newList = isRefresh ? videoList : [...oldList, ...videoList];
+          
+          // 缓存视频列表到本地，方便详情页使用
+          tt.setStorageSync('videoList', newList);
+          
+          this.setData({
+            videoList: newList,
+            pagination: res.data.pagination,
+            hasMore: res.data.pagination.hasMore,
+            loading: false,
+            loadingFailed: false
+          });
+        } else {
+          this.setData({
+            loading: false,
+            loadingFailed: true
+          });
+          
+          tt.showToast({
+            title: res.msg || '获取视频列表失败',
+            icon: 'none'
+          });
+        }
+      },
+      fail: (err) => {
+        console.error('获取视频列表失败', err);
+        
+        this.setData({
+          loading: false,
+          loadingFailed: true
+        });
+        
+        tt.showToast({
+          title: '网络错误，请重试',
+          icon: 'none'
+        });
+      }
     });
   },
 }); 

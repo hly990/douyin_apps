@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="header">
+    <text class="title">外部API访问演示</text>
+  </view>
+  
+  <view class="section">
+    <text class="section-title">预配置API调用</text>
+    <text class="description">使用配置文件中预定义的外部API</text>
+    <button class="btn primary" bindtap="callConfiguredApi" loading="{{loading}}">调用天气API</button>
+  </view>
+  
+  <view class="section">
+    <text class="section-title">自定义URL调用</text>
+    <text class="description">直接输入URL调用任意外部API</text>
+    <input class="input" value="{{customUrl}}" bindinput="updateCustomUrl" placeholder="输入完整URL" />
+    <button class="btn secondary" bindtap="callCustomUrl" loading="{{loading}}">调用API</button>
+  </view>
+  
+  <view class="result-container" tt:if="{{loading || response || error}}">
+    <text class="result-title">响应结果:</text>
+    <text class="loading" tt:if="{{loading}}">加载中...</text>
+    <text class="error" tt:if="{{error}}">{{error}}</text>
+    <scroll-view class="response-scroll" scroll-y="true" tt:if="{{response}}">
+      <text class="response">{{response}}</text>
+    </scroll-view>
+  </view>
+</view> 

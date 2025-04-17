@@ -4,13 +4,13 @@
 
 const config = {
   // API基础URL，根据环境配置
-  apiBaseUrl: 'https://api.example.com',
+  apiBaseUrl: 'http://192.168.31.126:1337/api/',
   
   // 开发环境标识
   isDev: true,
   
   // 模拟数据设置
-  useMockData: true,
+  useMockData: false,
   
   // 应用版本
   version: '1.0.0',
@@ -39,6 +39,35 @@ const config = {
     videoListExpire: 300, // 5分钟
     videoDetailExpire: 600, // 10分钟
     userInfoExpire: 1800 // 30分钟
+  },
+  
+  // 外部API配置
+  externalApis: {
+    // 是否启用外部API
+    enabled: true,
+    
+    // 外部API列表
+    endpoints: {
+      // 示例外部API
+      weather: 'https://api.weather.com/forecast',
+      news: 'https://api.news.org/latest',
+      translation: 'https://api.translate.com/v2',
+      // 视频 API - 恢复为原始IP地址
+      videos: 'http://192.168.31.126:1337/api/videos',
+      videoCategories: 'http://192.168.31.126:1337/api/video-categories'
+    },
+    
+    // 外部API请求头配置
+    headers: {
+      // 全局适用的请求头
+      common: {
+        'Accept': 'application/json'
+      },
+      // 特定API的请求头
+      weather: {
+        'X-API-Key': 'your-api-key-here'
+      }
+    }
   }
 };
 

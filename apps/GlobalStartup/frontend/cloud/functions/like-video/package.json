@@ -1,0 +1,9 @@
+{
+  "name": "like-video",
+  "version": "1.0.0",
+  "description": "视频点赞云函数",
+  "main": "index.js",
+  "dependencies": {},
+  "author": "",
+  "license": "ISC"
+} 

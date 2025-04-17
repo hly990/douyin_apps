@@ -1,0 +1,65 @@
+<view class="collection-page">
+  <!-- 顶部导航栏 -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="back-btn" bindtap="navigateBack">
+      <text class="iconfont icon-back"></text>
+    </view>
+    <view class="nav-title">{{pageTitle}}</view>
+    <view class="nav-placeholder"></view>
+  </view>
+  
+  <!-- 内容区域 -->
+  <view class="content-area" style="margin-top: {{statusBarHeight + 44}}px;">
+    <!-- 登录提示 -->
+    <view class="login-tip" tt:if="{{!isLogin}}">
+      <view class="tip-text">登录后查看{{pageType === 'likes' ? '点赞' : '收藏'}}的视频</view>
+      <button class="login-btn" bindtap="navigateToLogin">立即登录</button>
+    </view>
+    
+    <!-- 加载中 -->
+    <view class="loading-container" tt:if="{{loading && collectionList.length === 0}}">
+      <image class="loading-icon" src="/images/loading.png" />
+      <text class="loading-text">加载中...</text>
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty-state" tt:if="{{isEmpty && !loading}}">
+      <image class="empty-icon" src="/images/empty_collection.png" />
+      <text class="empty-text">{{isLogin ? '暂无' + (pageType === 'likes' ? '点赞' : '收藏') + '视频' : '登录后查看' + (pageType === 'likes' ? '点赞' : '收藏')}}</text>
+      <button class="action-btn" tt:if="{{isLogin}}" bindtap="navigateToVideo" data-id="">去发现视频</button>
+    </view>
+    
+    <!-- 视频列表 -->
+    <view class="video-list" tt:if="{{collectionList.length > 0}}">
+      <view class="video-item" tt:for="{{collectionList}}" tt:key="id" data-id="{{item.id}}" bindtap="navigateToVideo">
+        <view class="video-cover">
+          <image class="cover-image" mode="aspectFill" src="{{item.coverUrl || '/images/default_cover.png'}}" lazy-load />
+          <view class="video-duration">{{item.duration || '00:00'}}</view>
+        </view>
+        <view class="video-info">
+          <view class="video-title">{{item.title || '未命名视频'}}</view>
+          <view class="video-stats">
+            <text class="video-views">{{item.views || 0}}次观看</text>
+            <text class="video-date">{{pageType === 'likes' ? (item.likedAt || '未知时间') : (item.collectedAt || '未知时间')}}</text>
+          </view>
+        </view>
+        <view class="video-actions" catchtap="removeFromList" data-id="{{item.id}}" data-index="{{index}}">
+          <text class="iconfont icon-delete">删除</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部加载更多 -->
+    <view class="load-more" tt:if="{{hasMore && !loading && collectionList.length > 0}}">
+      <text class="load-more-text" bindtap="loadMoreData">加载更多</text>
+    </view>
+    
+    <view class="loading-more" tt:if="{{loading && collectionList.length > 0}}">
+      <text class="loading-more-text">加载中...</text>
+    </view>
+    
+    <view class="no-more" tt:if="{{!hasMore && !loading && collectionList.length > 0}}">
+      <text class="no-more-text">已经到底啦</text>
+    </view>
+  </view>
+</view> 

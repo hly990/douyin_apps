@@ -1,9 +1,10 @@
 {
-  "navigationBarTitleText": "推荐",
-  "navigationStyle": "custom",
-  "disableScroll": true,
+  "navigationBarTitleText": "为你推荐",
+  "navigationStyle": "default",
+  "disableScroll": false,
   "backgroundColor": "#000000",
   "backgroundTextStyle": "dark",
   "enablePullDownRefresh": true,
-  "usingComponents": {}
-} 
+  "usingComponents": {},
+  "isTabPage": true
+}

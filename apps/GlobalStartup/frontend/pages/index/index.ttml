@@ -22,7 +22,9 @@
         <block tt:for="{{videoList}}" tt:key="id">
           <video-card 
             videoInfo="{{item}}" 
-            bindtap="onTapVideo" 
+            bindtap="navigateToVideo" 
+            data-id="{{item.id}}"
+            data-video="{{item}}"
             bindplay="onPlayVideo"
           ></video-card>
         </block>
@@ -46,8 +48,8 @@
     </view>
   </view>
   
-  <!-- 添加一个固定在底部的导航栏 -->
-  <view class="fixed-tab-bar">
+  <!-- 页面级TabBar -->
+  <view class="page-tab-bar">
     <view class="tab-item active">
       <view class="tab-icon">🏠</view>
       <view class="tab-text">首页</view>
@@ -61,4 +63,7 @@
       <view class="tab-text">我的</view>
     </view>
   </view>
+  
+  <!-- 底部安全区域 -->
+  <view class="safe-area-inset-bottom"></view>
 </view> 

@@ -1,0 +1,89 @@
+<view class="container">
+  <view class="header">
+    <text class="title">抖音小程序登录测试</text>
+  </view>
+  
+  <view class="status-section">
+    <view class="status-card">
+      <text class="status-label">登录状态:</text>
+      <text class="status-value {{isLoggedIn ? 'status-success' : 'status-error'}}">
+        {{isLoggedIn ? '已登录' : '未登录'}}
+      </text>
+    </view>
+    
+    <view class="status-card" tt:if="{{loginStatus}}">
+      <text class="status-label">状态信息:</text>
+      <text class="status-value">{{loginStatus}}</text>
+    </view>
+    
+    <view class="status-card" tt:if="{{token}}">
+      <text class="status-label">Token:</text>
+      <text class="status-value token-text">{{token}}</text>
+    </view>
+  </view>
+  
+  <view class="user-info" tt:if="{{userInfo}}">
+    <view class="section-title">用户信息</view>
+    <view class="info-item">
+      <text class="info-label">ID:</text>
+      <text class="info-value">{{userInfo.id}}</text>
+    </view>
+    <view class="info-item" tt:if="{{userInfo.username}}">
+      <text class="info-label">用户名:</text>
+      <text class="info-value">{{userInfo.username}}</text>
+    </view>
+    <view class="info-item" tt:if="{{userInfo.nickname}}">
+      <text class="info-label">昵称:</text>
+      <text class="info-value">{{userInfo.nickname}}</text>
+    </view>
+    <view class="info-item" tt:if="{{userInfo.email}}">
+      <text class="info-label">邮箱:</text>
+      <text class="info-value">{{userInfo.email}}</text>
+    </view>
+  </view>
+  
+  <view class="action-buttons">
+    <!-- 一键登录按钮 -->
+    <button 
+      class="login-btn"
+      loading="{{loginBtnLoading}}"
+      disabled="{{loginBtnLoading}}"
+      bindtap="handleLogin"
+      tt:if="{{!isLoggedIn}}">
+      一键登录
+    </button>
+    
+    <!-- 分步登录按钮 -->
+    <view class="step-login" tt:if="{{!isLoggedIn}}">
+      <view class="section-title">分步登录测试</view>
+      
+      <button 
+        class="step-btn step-1"
+        bindtap="getCode">
+        第1步: 获取登录Code
+      </button>
+      
+      <button 
+        class="step-btn step-2"
+        bindtap="getUserInfo"
+        disabled="{{!loginCode}}">
+        第2步: 获取用户信息
+      </button>
+    </view>
+    
+    <button 
+      class="logout-btn"
+      bindtap="clearLoginStatus"
+      tt:if="{{isLoggedIn}}">
+      退出登录
+    </button>
+  </view>
+  
+  <view class="debug-section">
+    <view class="section-title">调试信息</view>
+    <view class="debug-content">
+      <text class="debug-text">请打开控制台查看详细日志信息</text>
+      <text class="debug-text">提示: getUserProfile 必须在用户点击事件中直接调用</text>
+    </view>
+  </view>
+</view> 

@@ -1,6 +1,7 @@
 const app = getApp();
 const utils = require('../../utils/util');
 const api = require('../../api/api');
+const videoUtil = require('../../utils/video');
 
 Page({
   data: {
@@ -14,7 +15,10 @@ Page({
     statusBarHeight: 0,   // 状态栏高度
     isPlaying: true,      // 是否正在播放
     page: 1,
-    pageSize: 10
+    pageSize: 10,
+    lastPlayTime: 0,      // 上次播放时间戳，用于防止重复触发播放事件
+    errorInfo: '',        // 错误信息
+    showError: false      // 是否显示错误提示
   },
 
   onLoad: function (options) {
@@ -26,7 +30,7 @@ Page({
     });
     
     // 初始化加载视频列表
-    this.loadVideoList();
+    this.loadVideoList(true);
   },
   
   onShow: function() {
@@ -35,9 +39,19 @@ Page({
     
     // 更新自定义tabBar选中状态
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({
-        selected: 1
-      });
+      const app = getApp();
+      if (app.globalData.tabBarList && app.globalData.tabBarList.length > 0) {
+        // 使用App中设置的tabBarList并设置推荐页为选中状态
+        this.getTabBar().setData({
+          selected: 1,
+          list: app.globalData.tabBarList
+        });
+      } else {
+        // 仅更新选中状态
+        this.getTabBar().setData({
+          selected: 1
+        });
+      }
     }
   },
   
@@ -46,42 +60,176 @@ Page({
     this.pauseCurrentVideo();
   },
   
+  onReady: function() {
+    console.log('推荐页面准备完毕');
+  },
+  
+  // 下拉刷新
+  onPullDownRefresh: function() {
+    this.setData({
+      refreshing: true
+    });
+    
+    // 刷新视频列表
+    this.loadVideoList(true);
+  },
+  
+  // 上拉触底加载更多
+  onReachBottom: function() {
+    if (this.data.hasMore && !this.data.isLoading) {
+      this.loadVideoList(false);
+    }
+  },
+  
   // 加载视频列表
   loadVideoList: function(isRefresh = false) {
     if(this.data.isLoading) return;
     
     this.setData({
-      isLoading: true
+      isLoading: true,
+      showError: false,
+      errorInfo: ''
     });
     
-    // 模拟接口请求
-    setTimeout(() => {
-      const newVideoList = this.getMockVideoList();
-      
-      if(isRefresh) {
-        // 下拉刷新，重置列表
-        this.setData({
-          videoList: newVideoList,
-          currentIndex: 0,
-          refreshing: false,
-          isLoading: false,
-          hasMore: true
-        });
-      } else {
-        // 上拉加载更多
-        this.setData({
-          videoList: [...this.data.videoList, ...newVideoList],
-          isLoading: false,
-          hasMore: true // 模拟场景，实际应该根据接口返回判断是否还有更多数据
-        });
+    // 如果是刷新，重置页码
+    const page = isRefresh ? 1 : this.data.page + 1;
+    
+    // 调用API获取视频列表
+    api.getVideoList({
+      page: page,
+      pageSize: this.data.pageSize,
+      success: (res) => {
+        console.log('获取视频列表成功, 数据结构:', JSON.stringify(res, null, 2));
+        // 检查返回的数据格式
+        let videoList = [];
+        let pagination = { hasMore: false };
+        
+        // 处理Strapi直接返回的数据格式
+        if (res.data) {
+          // Strapi格式
+          if (Array.isArray(res.data)) {
+            videoList = res.data;
+            // 如果返回的数量等于请求的数量，假定有更多数据
+            pagination.hasMore = videoList.length >= this.data.pageSize;
+          } 
+          // 适配Strapi的meta.pagination格式
+          else if (res.data.data && Array.isArray(res.data.data)) {
+            videoList = res.data.data;
+            if (res.data.meta && res.data.meta.pagination) {
+              pagination.hasMore = res.data.meta.pagination.page < res.data.meta.pagination.pageCount;
+            } else {
+              pagination.hasMore = videoList.length >= this.data.pageSize;
+            }
+          }
+          // 旧API格式
+          else if (res.data.list && Array.isArray(res.data.list)) {
+            videoList = res.data.list;
+            pagination = res.data.pagination || pagination;
+          }
+        }
+        
+        if (videoList.length > 0) {
+          // 使用工具函数批量处理视频数据
+          const processedVideos = videoUtil.processVideoList(videoList, {
+            baseUrl: 'http://192.168.31.126:1337',
+            logWarnings: true
+          });
+          
+          console.log('处理后的视频列表:', processedVideos);
+          
+          if(isRefresh) {
+            // 下拉刷新，重置列表
+            this.setData({
+              videoList: processedVideos,
+              currentIndex: 0,
+              refreshing: false,
+              isLoading: false,
+              hasMore: pagination.hasMore,
+              page: page
+            });
+            
+            // 完成下拉刷新
+            tt.stopPullDownRefresh();
+          } else {
+            // 上拉加载更多
+            this.setData({
+              videoList: [...this.data.videoList, ...processedVideos],
+              isLoading: false,
+              hasMore: pagination.hasMore,
+              page: page
+            });
+          }
+          
+          // 加载完成后播放当前视频
+          this.playCurrentVideo();
+          
+          // 缓存视频列表，用于提高体验和离线访问
+          tt.setStorageSync('videoList', this.data.videoList);
+        } else {
+          console.error('视频列表数据为空或格式不正确:', res);
+          this.handleLoadError('获取到的视频列表为空');
+        }
+      },
+      fail: (err) => {
+        console.error('获取视频列表失败', err);
+        this.handleLoadError(`获取视频列表失败: ${err.msg || '网络错误'}`);
       }
-      
-      // 加载完成后播放当前视频
-      this.playCurrentVideo();
-    }, 1000);
+    });
   },
   
-  // 获取模拟视频列表数据
+  // 处理加载失败的情况
+  handleLoadError: function(errorMsg = '加载失败') {
+    // 设置错误信息
+    this.setData({
+      errorInfo: errorMsg,
+      showError: true
+    });
+    
+    // 尝试从缓存获取数据
+    const cachedVideos = tt.getStorageSync('videoList');
+    
+    if (this.data.refreshing) {
+      tt.stopPullDownRefresh();
+    }
+    
+    if (cachedVideos && cachedVideos.length > 0) {
+      // 使用缓存数据
+      tt.showToast({
+        title: '使用缓存数据',
+        icon: 'none'
+      });
+      
+      this.setData({
+        videoList: cachedVideos,
+        isLoading: false,
+        refreshing: false,
+        hasMore: false
+      });
+      
+      // 播放当前视频
+      this.playCurrentVideo();
+    } else {
+      // 使用模拟数据
+      tt.showToast({
+        title: '网络错误，使用模拟数据',
+        icon: 'none'
+      });
+      
+      const mockVideos = this.getMockVideoList();
+      
+      this.setData({
+        videoList: mockVideos,
+        isLoading: false,
+        refreshing: false,
+        hasMore: false
+      });
+      
+      // 播放当前视频
+      this.playCurrentVideo();
+    }
+  },
+  
+  // 获取模拟视频列表数据（仅作为后备方案）
   getMockVideoList: function() {
     return [
       {
@@ -138,15 +286,26 @@ Page({
   // 播放当前视频
   playCurrentVideo: function() {
     const { currentIndex, videoList } = this.data;
-    if (videoList.length === 0) return;
+    if (videoList.length === 0) {
+      console.warn('没有可播放的视频');
+      return;
+    }
+    
+    const currentVideo = videoList[currentIndex];
+    console.log(`准备播放视频: ID=${currentVideo.id}, URL=${currentVideo.videoUrl}`);
     
     // 获取当前视频的上下文
-    const videoContext = tt.createVideoContext(`video-${videoList[currentIndex].id}`);
+    const videoContext = tt.createVideoContext(`video-${currentVideo.id}`);
     if (videoContext) {
       videoContext.play();
       this.setData({
         isPlaying: true
       });
+      
+      // 更新视频播放次数
+      this.reportVideoPlay(currentVideo);
+    } else {
+      console.error(`无法获取视频上下文: video-${currentVideo.id}`);
     }
   },
   
@@ -165,6 +324,70 @@ Page({
     }
   },
   
+  // 上报视频播放
+  reportVideoPlay: function(videoData) {
+    if (!videoData) return;
+    
+    // 防止短时间内重复触发
+    const now = Date.now();
+    if (now - this.data.lastPlayTime < 500) {
+      console.log('忽略重复的播放事件');
+      return;
+    }
+    
+    // 更新最后播放时间
+    this.setData({
+      lastPlayTime: now
+    });
+    
+    // 调用API上报播放次数
+    api.updateVideoPlayCount({
+      videoId: videoData.id,
+      success: () => {
+        console.log('视频播放次数已上报');
+      },
+      fail: (err) => {
+        console.error('上报视频播放次数失败', err);
+      }
+    });
+    
+    // 记录播放历史
+    this.saveVideoHistory(videoData);
+  },
+  
+  // 保存视频播放历史
+  saveVideoHistory: function(videoData) {
+    if (!videoData) return;
+    
+    // 从本地存储获取历史记录
+    let historyList = tt.getStorageSync('videoHistory') || [];
+    
+    // 检查是否已存在该视频
+    const existingIndex = historyList.findIndex(item => item.id === videoData.id);
+    if (existingIndex !== -1) {
+      // 已存在，则移除旧记录
+      historyList.splice(existingIndex, 1);
+    }
+    
+    // 添加新记录到顶部
+    historyList.unshift({
+      id: videoData.id,
+      title: videoData.title,
+      coverUrl: videoData.coverUrl,
+      viewedAt: new Date().toISOString(),
+      duration: videoData.duration || 0,
+      playCount: videoData.views || 0
+    });
+    
+    // 只保留最近50条记录
+    if (historyList.length > 50) {
+      historyList = historyList.slice(0, 50);
+    }
+    
+    // 保存到本地存储
+    tt.setStorageSync('videoHistory', historyList);
+  },
+  
   // 滑动切换视频处理
   handleSwiperChange: function(e) {
     const newIndex = e.detail.current;
@@ -177,33 +400,40 @@ Page({
     }
     
     this.setData({
-      currentIndex: newIndex
+      currentIndex: newIndex,
+      isPlaying: true
     });
     
     // 播放新视频
     const newVideoContext = tt.createVideoContext(`video-${this.data.videoList[newIndex].id}`);
     if (newVideoContext) {
       newVideoContext.play();
-      this.setData({
-        isPlaying: true
-      });
     }
     
     // 如果滑动到倒数第二个视频，就预加载更多
-    if (newIndex >= this.data.videoList.length - 2 && this.data.hasMore) {
+    if (newIndex >= this.data.videoList.length - 2 && this.data.hasMore && !this.data.isLoading) {
       this.loadVideoList();
     }
   },
   
   // 视频播放回调
-  handleVideoPlay: function() {
+  handleVideoPlay: function(e) {
+    console.log('视频开始播放', e);
+    const { currentIndex, videoList } = this.data;
+    
     this.setData({
-      isPlaying: true
+      isPlaying: true,
+      showError: false,
+      errorInfo: ''
     });
+    
+    // 上报视频播放
+    this.reportVideoPlay(videoList[currentIndex]);
   },
   
-  // 视频暂停回调
+  // 视频暂停回调 - 添加回原来被删除的函数
   handleVideoPause: function() {
+    console.log('视频暂停播放');
     this.setData({
       isPlaying: false
     });
@@ -211,6 +441,7 @@ Page({
   
   // 视频播放结束
   handleVideoEnded: function() {
+    console.log('视频播放结束');
     const { currentIndex, videoList } = this.data;
     
     // 播放结束，如果不是最后一个，自动切换到下一个
@@ -219,14 +450,19 @@ Page({
         currentIndex: currentIndex + 1
       });
       
-      setTimeout(() => {
-        this.playCurrentVideo();
-      }, 100);
+      // 播放下一个视频
+      this.playCurrentVideo();
+    } else {
+      // 已是最后一个视频，加载更多
+      if (this.data.hasMore && !this.data.isLoading) {
+        this.loadVideoList();
+      }
     }
   },
   
-  // 点击视频切换播放/暂停状态
+  // 视频点击事件 - 添加回原来被删除的函数
   handleVideoTap: function() {
+    console.log('视频被点击');
     if (this.data.isPlaying) {
       this.pauseCurrentVideo();
     } else {
@@ -234,72 +470,148 @@ Page({
     }
   },
   
-  // 关注作者
-  followAuthor: function(e) {
-    const authorId = e.currentTarget.dataset.id;
+  // 视频播放错误回调
+  handleVideoError: function(e) {
+    console.error('视频播放错误:', e.detail);
     const { currentIndex, videoList } = this.data;
-    const video = videoList[currentIndex];
     
-    // 切换关注状态
-    video.author.isFollowing = !video.author.isFollowing;
+    const errorMsg = `视频播放失败: ${e.detail.errMsg || '未知错误'}`;
     
     this.setData({
-      videoList: videoList
+      showError: true,
+      errorInfo: errorMsg
     });
     
-    tt.showToast({
-      title: video.author.isFollowing ? '关注成功' : '取消关注',
-      icon: 'none'
-    });
+    // 尝试使用替代视频
+    const currentVideo = videoList[currentIndex];
+    if (currentVideo) {
+      console.log(`尝试使用替代视频源替换失败的视频 ID=${currentVideo.id}`);
+      const updatedVideo = {...currentVideo};
+      updatedVideo.videoUrl = 'https://sf1-cdn-tos.huoshanstatic.com/obj/media-fe/xgplayer_doc_video/mp4/xgplayer-demo-720p.mp4';
+      
+      const updatedVideoList = [...videoList];
+      updatedVideoList[currentIndex] = updatedVideo;
+      
+      this.setData({
+        videoList: updatedVideoList
+      });
+      
+      // 稍等片刻后尝试重新播放
+      setTimeout(() => {
+        this.playCurrentVideo();
+      }, 1000);
+    }
   },
   
-  // 导航到用户主页
-  navigateToUser: function(e) {
-    const authorId = e.currentTarget.dataset.id;
+  // 获取视频元数据
+  handleVideoMetadataLoaded: function(e) {
+    console.log('视频元数据加载完成:', e.detail);
+  },
+  
+  // 添加调试信息获取方法
+  getDebugInfo: function() {
+    const { currentIndex, videoList } = this.data;
+    if (videoList.length === 0 || !videoList[currentIndex]) return '没有视频数据';
     
-    tt.showToast({
-      title: '进入用户主页 ID:' + authorId,
-      icon: 'none'
+    const currentVideo = videoList[currentIndex];
+    return `当前视频ID: ${currentVideo.id}, URL: ${currentVideo.videoUrl}`;
+  },
+  
+  // 重试播放当前视频
+  retryPlayVideo: function() {
+    this.setData({
+      showError: false,
+      errorInfo: ''
     });
+    
+    // 先尝试卸载并重新加载视频
+    const { currentIndex, videoList } = this.data;
+    if (videoList.length === 0) return;
+    
+    const currentVideo = videoList[currentIndex];
+    const updatedVideo = {...currentVideo};
+    
+    // 稍微修改URL以强制重新加载 (添加时间戳或随机参数)
+    if (updatedVideo.videoUrl.includes('?')) {
+      updatedVideo.videoUrl = `${updatedVideo.videoUrl}&t=${Date.now()}`;
+    } else {
+      updatedVideo.videoUrl = `${updatedVideo.videoUrl}?t=${Date.now()}`;
+    }
+    
+    // 更新视频列表
+    const updatedVideoList = [...videoList];
+    updatedVideoList[currentIndex] = updatedVideo;
+    
+    this.setData({
+      videoList: updatedVideoList
+    });
+    
+    // 稍等片刻后尝试重新播放
+    setTimeout(() => {
+      this.playCurrentVideo();
+    }, 500);
   },
   
   // 点赞视频
   likeVideo: function(e) {
     const videoId = e.currentTarget.dataset.id;
     const index = e.currentTarget.dataset.index;
+    const currentVideo = this.data.videoList[index];
+    const isLiked = currentVideo.isLiked;
     
-    // 修改点赞状态
-    const videoList = this.data.videoList;
-    const video = videoList[index];
+    console.log(`尝试${isLiked ? '取消点赞' : '点赞'}视频: ID=${videoId}, 索引=${index}`);
     
-    // 如果不存在likes或isLiked属性，初始化它们
-    if (video.likes === undefined) {
-      video.likes = 0;
-    }
-    if (video.isLiked === undefined) {
-      video.isLiked = false;
-    }
-    
-    // 切换点赞状态
-    video.isLiked = !video.isLiked;
-    // 更新点赞数量
-    video.likes = video.isLiked ? video.likes + 1 : Math.max(0, video.likes - 1);
+    // 乐观更新UI
+    const videoList = [...this.data.videoList];
+    videoList[index].isLiked = !isLiked;
+    videoList[index].likes = isLiked ? Math.max(0, (videoList[index].likes || 0) - 1) : (videoList[index].likes || 0) + 1;
     
     this.setData({
       videoList: videoList
     });
     
-    // 在实际应用中，这里应该调用API将点赞状态同步到服务器
-    // api.likeVideo({
-    //   videoId: videoId,
-    //   like: video.isLiked,
-    //   success: () => {},
-    //   fail: () => {}
-    // });
-    
-    tt.showToast({
-      title: video.isLiked ? '点赞成功' : '取消点赞',
-      icon: 'none'
+    // 调用新的API
+    api.toggleVideoLike({
+      videoId: videoId,
+      success: (res) => {
+        console.log('切换点赞状态成功:', res);
+        
+        if (res.code === 0 && res.data) {
+          const liked = res.data.liked;
+          
+          // 如果服务器返回的状态与我们乐观更新的不一致，则以服务器为准
+          if (liked !== videoList[index].isLiked) {
+            const updatedList = [...this.data.videoList];
+            updatedList[index].isLiked = liked;
+            updatedList[index].likes = liked 
+              ? (currentVideo.likes || 0) + 1 
+              : Math.max(0, (currentVideo.likes || 0) - 1);
+            
+            this.setData({
+              videoList: updatedList
+            });
+          }
+          
+          // 更新缓存
+          tt.setStorageSync('videoList', this.data.videoList);
+        }
+      },
+      fail: (err) => {
+        console.error('切换点赞状态失败:', err);
+        // 操作失败，恢复原状态
+        const videoList = [...this.data.videoList];
+        videoList[index].isLiked = isLiked;
+        videoList[index].likes = isLiked ? (videoList[index].likes || 0) + 1 : Math.max(0, (videoList[index].likes || 0) - 1);
+        
+        this.setData({
+          videoList: videoList
+        });
+        
+        tt.showToast({
+          title: '操作失败，请重试',
+          icon: 'none'
+        });
+      }
     });
   },
   
@@ -307,52 +619,89 @@ Page({
   collectVideo: function(e) {
     const videoId = e.currentTarget.dataset.id;
     const index = e.currentTarget.dataset.index;
+    const isCollected = this.data.videoList[index].isCollected;
     
-    // 修改收藏状态
-    const videoList = this.data.videoList;
-    const video = videoList[index];
+    console.log(`尝试${isCollected ? '取消收藏' : '收藏'}视频: ID=${videoId}, 索引=${index}`);
     
-    // 如果不存在isCollected属性，初始化它
-    if (video.isCollected === undefined) {
-      video.isCollected = false;
-    }
-    
-    // 切换收藏状态
-    video.isCollected = !video.isCollected;
+    // 乐观更新UI
+    const videoList = [...this.data.videoList];
+    videoList[index].isCollected = !isCollected;
     
     this.setData({
       videoList: videoList
     });
     
-    // 在实际应用中，这里应该调用API将收藏状态同步到服务器
-    // api.collectVideo({
-    //   videoId: videoId,
-    //   collect: video.isCollected,
-    //   success: () => {},
-    //   fail: () => {}
-    // });
-    
-    tt.showToast({
-      title: video.isCollected ? '收藏成功' : '取消收藏',
-      icon: 'none'
+    // 调用新的API
+    api.toggleVideoCollection({
+      videoId: videoId,
+      success: (res) => {
+        console.log('切换收藏状态成功:', res);
+        
+        if (res.code === 0 && res.data) {
+          const collected = res.data.collected;
+          
+          // 如果服务器返回的状态与我们乐观更新的不一致，则以服务器为准
+          if (collected !== videoList[index].isCollected) {
+            const updatedList = [...this.data.videoList];
+            updatedList[index].isCollected = collected;
+            
+            this.setData({
+              videoList: updatedList
+            });
+          }
+          
+          // 更新缓存
+          tt.setStorageSync('videoList', this.data.videoList);
+        }
+      },
+      fail: (err) => {
+        console.error('切换收藏状态失败:', err);
+        // 操作失败，恢复原状态
+        const videoList = [...this.data.videoList];
+        videoList[index].isCollected = isCollected;
+        
+        this.setData({
+          videoList: videoList
+        });
+        
+        tt.showToast({
+          title: '操作失败，请重试',
+          icon: 'none'
+        });
+      }
     });
   },
   
-  // 下拉刷新
-  onPullDownRefresh: function() {
-    this.setData({
-      refreshing: true
+  // 导航到首页
+  navigateToIndex: function() {
+    tt.switchTab({
+      url: '/pages/index/index',
+      fail: (err) => {
+        console.error('导航到首页失败', err);
+        // 如果switchTab失败，尝试redirectTo
+        tt.redirectTo({
+          url: '/pages/index/index'
+        });
+      }
     });
-    
-    this.loadVideoList(true);
-    tt.stopPullDownRefresh();
   },
   
-  // 上拉触底加载更多
-  onReachBottom: function() {
-    if (this.data.hasMore && !this.data.isLoading) {
-      this.loadVideoList();
-    }
+  // 导航到个人中心
+  navigateToProfile: function() {
+    console.log('导航到我的页面');
+    tt.switchTab({
+      url: '/pages/profile/profile',
+      success: (res) => {
+        console.log('成功导航到我的页面', res);
+      },
+      fail: (err) => {
+        console.error('导航到我的页面失败', err);
+        // 如果switchTab失败，尝试redirectTo
+        tt.redirectTo({
+          url: '/pages/profile/profile'
+        });
+      }
+    });
   },
 
   // 点击视频卡片，跳转到视频详情页
@@ -371,18 +720,5 @@ Page({
       title: '发现更多精彩创业视频',
       path: '/pages/recommend/recommend'
     };
-  },
-
-  // 添加导航相关方法
-  navigateToIndex: function() {
-    tt.switchTab({
-      url: '/pages/index/index'
-    });
-  },
-
-  navigateToProfile: function() {
-    tt.switchTab({
-      url: '/pages/profile/profile'
-    });
   },
 }); 

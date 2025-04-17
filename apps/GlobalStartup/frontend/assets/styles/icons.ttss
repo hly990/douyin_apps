@@ -1,0 +1,44 @@
+@font-face {
+  font-family: 'iconfont';
+  src: url('https://at.alicdn.com/t/font_2223795_v2zjdqu05vm.ttf') format('truetype');
+}
+
+/* 通用图标基础样式 */
+[class*="icon-"] {
+  font-family: 'iconfont' !important;
+  font-style: normal;
+  font-weight: normal;
+  speak: none;
+  display: inline-block;
+  text-decoration: inherit;
+  width: 1em;
+  text-align: center;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 登录页面的图标 */
+.icon-heart:before { content: "\e8ab"; }
+.icon-save:before { content: "\e936"; }
+.icon-sync:before { content: "\e786"; }
+.icon-security:before { content: "\e7c0"; }
+.icon-star:before { content: "\e7df"; }
+.icon-notification:before { content: "\e759"; }
+
+/* 其他应用图标 */
+.icon-home:before { content: "\e7c6"; }
+.icon-user:before { content: "\e7ae"; }
+.icon-play:before { content: "\e7fa"; }
+.icon-share:before { content: "\e739"; }
+.icon-comment:before { content: "\e8e8"; }
+.icon-like:before { content: "\e7c8"; }
+.icon-search:before { content: "\e8ef"; }
+.icon-setting:before { content: "\e78e"; }
+.icon-more:before { content: "\e710"; }
+.icon-right:before { content: "\e7eb"; }
+.icon-left:before { content: "\e7ec"; }
+.icon-close:before { content: "\e7fc"; }
+.icon-check:before { content: "\e7fd"; }
+.icon-add:before { content: "\e8fe"; } 

@@ -49,12 +49,12 @@ Page({
   getHotSearch: function () {
     // 这里使用模拟数据，实际开发中应调用后端API
     const mockHotList = [
-      { id: 1, keyword: '创业投资' },
-      { id: 2, keyword: 'AI智能应用' },
-      { id: 3, keyword: '出海创业指南' },
-      { id: 4, keyword: '社交电商' },
-      { id: 5, keyword: '创业故事' },
-      { id: 6, keyword: '新消费' }
+      // { id: 1, keyword: '创业投资' },
+      // { id: 2, keyword: 'AI智能应用' },
+      // { id: 3, keyword: '出海创业指南' },
+      // { id: 4, keyword: '社交电商' },
+      // { id: 5, keyword: '创业故事' },
+      // { id: 6, keyword: '新消费' }
     ];
     
     this.setData({

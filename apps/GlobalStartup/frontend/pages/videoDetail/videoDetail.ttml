@@ -1,40 +1,57 @@
-<view class="container">
-  <!-- 视频播放区域 -->
-  <view class="video-container" style="height: {{windowHeight}}px">
-    <!-- 返回按钮 -->
-    <view class="back-btn" bindtap="navigateBack">
-      <text class="back-icon">◀</text>
+<view class="video-detail-container" 
+  bindtouchstart="touchStart" 
+  bindtouchmove="touchMove" 
+  bindtouchend="touchEnd">
+  <!-- 顶部导航栏 -->
+  <view class="nav-bar" style="height:{{navBarHeight}}rpx; padding-top:{{statusBarHeight}}px;">
+    <view class="nav-bar-content">
+      <view class="nav-bar-left" bindtap="navigateBack">
+        <view class="nav-back-icon">←</view>
+      </view>
+      <text class="nav-title">视频详情</text>
     </view>
-    
+  </view>
+  
+  <!-- 状态栏占位，确保内容不被导航栏遮挡 -->
+  <view style="width:100%; height:{{navBarHeight}}rpx;"></view>
+
+  <!-- 视频内容区域 -->
+  <view class="video-container">
     <video 
-      id="mainVideo" 
-      class="video-player" 
-      src="{{videoData.videoUrl}}" 
-      poster="{{videoData.coverUrl}}"
-      object-fit="contain"
+      id="mainVideo"
+      class="main-video"
+      src="{{videoData.url}}"
+      loop="{{true}}"
       autoplay="{{true}}"
-      loop="{{false}}"
+      object-fit="cover"
       show-play-btn="{{false}}"
       controls="{{false}}"
-      enable-progress-gesture="{{false}}"
       bindplay="onVideoPlay"
       bindpause="onVideoPause"
-      bindended="onVideoEnded"
+      binderror="onVideoError"
+      bindended="onVideoEnd"
       bindtap="toggleVideoPlay"
     ></video>
 
-    <!-- 侧边操作栏 -->
-    <view class="side-bar">
-      <!-- 点赞 -->
-      <view class="action-item" bindtap="likeVideo">
+    <!-- 滑动返回指示器 -->
+    <view class="swipe-indicator {{showSwipeIndicator ? 'visible' : ''}}">
+      <view class="swipe-indicator-arrow"></view>
+    </view>
+
+    <!-- 自定义播放/暂停按钮 -->
+    <view class="play-pause-btn" tt:if="{{!isPlaying}}" bindtap="toggleVideoPlay">
+      <text class="play-icon">▶</text>
+    </view>
+
+    <!-- 右侧操作区 -->
+    <view class="action-bar">
+      <view class="action-item">
         <view class="action-icon {{isLiked ? 'active' : ''}}">
           <text class="action-icon-inner">{{isLiked ? '❤️' : '♡'}}</text>
         </view>
-        <text class="action-text">{{utils.formatCount(videoData.likes || 0)}}</text>
+        <text class="action-text">{{likeCount || 0}}</text>
       </view>
-      
-      <!-- 收藏 -->
-      <view class="action-item" bindtap="collectVideo">
+      <view class="action-item">
         <view class="action-icon {{isCollected ? 'active' : ''}}">
           <text class="action-icon-inner">{{isCollected ? '★' : '☆'}}</text>
         </view>
@@ -42,115 +59,13 @@
       </view>
     </view>
 
-    <!-- 自定义播放/暂停按钮 -->
-    <view class="play-pause-btn" tt:if="{{!isPlaying}}" bindtap="toggleVideoPlay">
-      <text class="play-icon">▶</text>
-    </view>
-  </view>
-  
-  <!-- 底部安全区域 -->
-  <view class="safe-area-bottom"></view>
-  
-  <!-- 评论弹出面板 -->
-  <view class="comment-panel {{showCommentPanel ? 'show' : ''}}" catchtouchmove="preventBubble">
-    <view class="comment-panel-mask" bindtap="hideComments"></view>
-    <view class="comment-panel-content" style="height: {{commentPanelHeight}}px">
-      <view class="comment-panel-header">
-        <view class="comment-panel-title">
-          评论 <text class="comment-count">{{commentList.length}}</text>
-        </view>
-        <view class="comment-panel-close" bindtap="hideComments">×</view>
-      </view>
-      
-      <scroll-view class="comment-list" scroll-y="{{true}}">
-        <view class="comment-item" tt:for="{{commentList}}" tt:key="id">
-          <image class="commenter-avatar" src="{{item.user.avatarUrl}}" mode="aspectFill"></image>
-          <view class="comment-content">
-            <view class="commenter-name">{{item.user.nickname}}</view>
-            <view class="comment-text">{{item.content}}</view>
-            <view class="comment-actions">
-              <view class="comment-time">{{utils.formatDate(item.createTime)}}</view>
-              <view class="comment-like" catchtap="likeComment" data-id="{{item.id}}">
-                <text class="{{item.isLiked ? 'liked' : ''}}">
-                  {{item.isLiked ? '❤️' : '♡'}}
-                </text> 
-                {{utils.formatCount(item.likes)}}
-              </view>
-              <view class="comment-reply" catchtap="replyComment" data-id="{{item.id}}" data-name="{{item.user.nickname}}">
-                回复
-              </view>
-            </view>
-            
-            <!-- 回复列表 -->
-            <view class="reply-container" tt:if="{{item.replies && item.replies.length > 0}}">
-              <view class="reply-item" tt:for="{{item.replies}}" tt:for-item="reply" tt:key="id">
-                <view class="reply-content">
-                  <text class="replier-name">{{reply.user.nickname}}</text>: {{reply.content}}
-                </view>
-              </view>
-              <view class="view-more-replies" tt:if="{{item.replies.length > 2}}">查看全部回复</view>
-            </view>
-          </view>
-        </view>
-        
-        <view class="no-comments" tt:if="{{commentList.length === 0}}">
-          暂无评论，快来发表第一条评论吧
-        </view>
-      </scroll-view>
-      
-      <!-- 评论输入框 -->
-      <view class="comment-input-area">
-        <input 
-          class="comment-input" 
-          placeholder="说点什么..." 
-          value="{{commentText}}" 
-          bindinput="onCommentInput" 
-          confirm-type="send" 
-          bindconfirm="submitComment"
-          focus="{{showCommentPanel}}"
-        />
-        <view class="send-btn {{commentText ? 'active' : ''}}" bindtap="submitComment">发送</view>
+    <!-- 视频错误提示 -->
+    <view class="error-container" tt:if="{{showError}}">
+      <view class="error-box">
+        <text class="error-icon">⚠️</text>
+        <text class="error-message">{{errorInfo || '视频加载失败'}}</text>
+        <button class="retry-button" bindtap="retryPlayVideo">点击重试</button>
       </view>
     </view>
   </view>
-
-  <!-- 相关视频推荐弹窗 -->
-  <view class="related-panel {{showRelatedPanel ? 'show' : ''}}" catchtouchmove="preventBubble">
-    <view class="related-panel-mask" bindtap="hideRelated"></view>
-    <view class="related-panel-content">
-      <view class="related-panel-header">
-        <view class="related-panel-title">相关推荐</view>
-        <view class="related-panel-close" bindtap="hideRelated">×</view>
-      </view>
-      
-      <scroll-view class="related-video-list" scroll-y="{{true}}">
-        <view 
-          class="related-video-item" 
-          tt:for="{{relatedVideos}}" 
-          tt:key="id" 
-          bindtap="navigateToVideo" 
-          data-id="{{item.id}}">
-          <view class="related-video-cover">
-            <image src="{{item.coverUrl}}" mode="aspectFill"></image>
-            <view class="video-duration">{{item.duration}}</view>
-          </view>
-          <view class="related-video-info">
-            <view class="related-video-title">{{item.title}}</view>
-            <view class="related-video-stats">
-              <view class="related-video-author">{{item.author.nickname}}</view>
-              <view class="related-video-count">
-                {{utils.formatCount(item.playCount || 0)}}次播放
-              </view>
-            </view>
-          </view>
-        </view>
-        
-        <view class="loading" tt:if="{{loading}}">
-          <view class="loading-spinner"></view>
-          <text class="loading-text">加载中...</text>
-        </view>
-        <view class="no-more" tt:if="{{relatedVideos.length === 0 && !loading}}">暂无相关视频</view>
-      </scroll-view>
-    </view>
-  </view>
-</view> 
+</view>

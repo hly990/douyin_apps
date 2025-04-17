@@ -1,4 +1,12 @@
+/**
+ * 用户个人资料页面
+ */
 const app = getApp();
+const { isLoggedIn, getUserInfo, logout, nativeLogin, getUserProfile, getLoginCode, getUserProfileInfo, completeLogin, updateUserProfile } = require('../../utils/auth');
+const { requireLogin } = require('../../utils/authManager');
+const { checkLoginRequired } = require('../../utils/protectedRoute');
+const { navigateTo, navigateBack } = require('../../utils/router');
+const { request } = require('../../utils/request');
 const utils = require('../../utils/util');
 const api = require('../../api/api');
 
@@ -11,252 +19,505 @@ Page({
       followerCount: 0,
       likeCount: 0
     },
-    activeTab: 'favorites', // 'favorites', 'history'
     loading: true,
     favoritesPage: 1,
-    historyPage: 1,
     pageSize: 10,
     hasMoreFavorites: true,
-    hasMoreHistory: true,
     isLogin: false,
-    utils: utils // 添加utils到data中供模板访问
+    isLoading: false,
+    statistics: {
+      likes: 0,
+      favorites: 0
+    },
+    utils: utils, // 添加utils到data中供模板访问
+    loginBtnLoading: false, // 登录按钮加载状态
+    items: [
+      { icon: 'favorite', text: '我的收藏', path: '/pages/favorite/favorite', auth: true },
+      { icon: 'settings', text: '设置', path: '/pages/settings/settings', auth: false }
+    ]
   },
 
   onLoad: function (options) {
-    // 检查是否已登录
+    this.setData({ loading: true });
     this.checkLoginStatus();
   },
 
   onShow: function() {
-    // 更新自定义tabBar选中状态
-    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({
-        selected: 2
-      });
+    // 每次显示页面时检查登录状态
+    console.log('profile.js - onShow - 开始检查登录状态');
+    
+    // 直接从本地存储获取token和用户信息
+    try {
+      const token = tt.getStorageSync('token');
+      const userInfoStr = tt.getStorageSync('userInfo');
+      
+      console.log('=== 本地存储检查 ===');
+      console.log('本地token:', token ? (token.substring(0, 15) + '...') : '不存在');
+      console.log('本地userInfo:', userInfoStr ? (userInfoStr.substring(0, 30) + '...') : '不存在');
+      
+      // 如果本地存储有token和用户信息，但页面状态显示未登录，直接更新状态
+      if (token && userInfoStr && !this.data.isLogin) {
+        console.log('发现token和用户信息但页面显示未登录，直接更新状态');
+        
+        let userData;
+        try {
+          userData = JSON.parse(userInfoStr);
+          console.log('成功解析用户信息:', typeof userData);
+        } catch (e) {
+          console.error('解析用户信息字符串失败:', e);
+          userData = { nickname: '用户', avatar: '' };
+        }
+        
+        // 直接更新页面状态
+        this.setData({
+          isLogin: true,
+          userInfo: userData,
+          loading: false,
+          stats: {
+            followingCount: userData.followingCount || userData.stats?.followingCount || 0,
+            followerCount: userData.followerCount || userData.stats?.followerCount || 0,
+            likeCount: userData.likeCount || userData.stats?.likeCount || 0,
+            collectionsCount: userData.collectionsCount || userData.stats?.collectionsCount || 0
+          }
+        });
+        
+        console.log('页面状态已更新为已登录状态');
+        
+        // 获取收藏视频
+        setTimeout(() => {
+          this.getFavoriteVideos();
+        }, 200);
+        
+        return; // 跳过标准检查流程
+      }
+    } catch (e) {
+      console.error('读取本地存储失败:', e);
     }
+    
+    // 如果没有直接更新状态，则使用标准流程
+    this.setData({ loading: true });
+    this.checkLoginStatus();
   },
 
   // 检查登录状态
   checkLoginStatus: function () {
-    // 从本地存储获取用户信息
-    const userInfo = tt.getStorageSync('userInfo');
+    console.log('profile.js - checkLoginStatus - 开始检查');
     
-    // 如果本地存储有用户信息，设置登录状态为true
-    if (userInfo) {
-      this.setData({
-        isLogin: true,
-        userInfo: userInfo
-      });
+    // 首先检查是否有紧急token
+    try {
+      const app = getApp();
+      if (app && app.globalData && app.globalData._emergencyToken) {
+        console.log('发现紧急token，尝试恢复登录状态');
+        
+        // 保存紧急token到本地存储
+        tt.setStorageSync('token', app.globalData._emergencyToken);
+        
+        if (app.globalData._emergencyUserInfo) {
+          // 将对象转换为字符串
+          if (typeof app.globalData._emergencyUserInfo === 'object') {
+            tt.setStorageSync('userInfo', JSON.stringify(app.globalData._emergencyUserInfo));
+          } else {
+            tt.setStorageSync('userInfo', app.globalData._emergencyUserInfo);
+          }
+        }
+        
+        console.log('紧急token已保存到本地存储');
+        
+        // 更新页面状态
+        this.setData({
+          isLogin: true,
+          userInfo: app.globalData._emergencyUserInfo,
+          loading: false
+        });
+        
+        // 获取用户信息
+        setTimeout(() => this.fetchUserProfile(), 100);
+        
+        // 获取收藏视频
+        setTimeout(() => this.getFavoriteVideos(), 200);
+        
+        return; // 跳过常规登录检查
+      }
+    } catch (e) {
+      console.error('检查紧急token失败:', e);
+    }
+    
+    // 直接检查本地存储中的token
+    try {
+      const token = tt.getStorageSync('token');
+      const userInfoStr = tt.getStorageSync('userInfo');
       
-      // 获取用户信息和数据
-      this.getUserInfo();
-      this.getFavoriteVideos();
+      console.log('本地token检查结果:', token ? '存在' : '不存在');
+      console.log('本地userInfo检查结果:', userInfoStr ? '存在' : '不存在');
+      
+      if (token) {
+        console.log('本地存储中有token，视为已登录');
+        
+        let userData = null;
+        if (userInfoStr) {
+          try {
+            if (typeof userInfoStr === 'string') {
+              userData = JSON.parse(userInfoStr);
+            } else {
+              userData = userInfoStr;
+            }
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+            userData = { nickname: '用户' };
+          }
+        }
+        
+        // 更新页面状态
+        this.setData({
+          isLogin: true,
+          userInfo: userData,
+          loading: false
+        });
+        
+        // 获取用户信息
+        setTimeout(() => this.fetchUserProfile(), 100);
+        
+        // 获取收藏视频
+        setTimeout(() => this.getFavoriteVideos(), 200);
+        
+        return; // 跳过isLoggedIn检查
+      }
+    } catch (e) {
+      console.error('直接检查本地存储失败:', e);
+    }
+    
+    // 如果前面的检查都失败，则使用isLoggedIn函数
+    const loggedIn = isLoggedIn();
+    console.log('isLoggedIn()返回结果:', loggedIn);
+    
+    this.setData({
+      isLogin: loggedIn,
+      loading: false // 无论登录状态如何，都设置loading为false
+    });
+    
+    console.log('更新页面登录状态:', loggedIn ? '已登录' : '未登录');
+    
+    if (loggedIn) {
+      console.log('用户已登录，开始获取用户资料');
+      // 获取用户信息
+      this.fetchUserProfile();
+      
+      // 同时开始获取收藏视频
+      setTimeout(() => {
+        this.getFavoriteVideos();
+      }, 200);
     } else {
-      // 测试用：创建模拟用户信息进行自动登录
-      const mockUserInfo = {
-        id: '1001',
-        nickname: '测试用户',
-        avatarUrl: 'https://via.placeholder.com/100x100',
-        douyin_id: 'test001',
-        bio: '这是一个测试账号'
-      };
-      
-      // 存储模拟用户信息到本地
-      tt.setStorageSync('userInfo', mockUserInfo);
-      
+      // 用户未登录，确保重置数据并停止加载
+      console.log('用户未登录，重置页面数据');
       this.setData({
-        isLogin: true,
-        userInfo: mockUserInfo
+        userInfo: null,
+        videos: [],
+        stats: {
+          followingCount: 0,
+          followerCount: 0,
+          likeCount: 0
+        },
+        loading: false
       });
       
-      // 获取用户信息和模拟数据
-      this.getMockUserInfo();
-      this.getFavoriteVideos();
+      console.log('用户未登录，显示登录页面');
     }
   },
   
-  // 获取模拟用户信息
-  getMockUserInfo: function() {
-    // 模拟用户统计数据
-    this.setData({
-      stats: {
-        followingCount: 42,
-        followerCount: 128,
-        likeCount: 1024
-      },
-      loading: false
-    });
+  // 登录触发方法
+  login: function () {
+    console.log('login方法被调用，执行handleLogin');
+    this.handleLogin();
   },
   
-  // 获取用户信息
-  getUserInfo: function () {
-    if (!this.data.isLogin) return;
+  // 登录主处理函数
+  handleLogin: function () {
+    if (this.data.loginBtnLoading) return;
     
-    const userId = this.data.userInfo.id;
+    this.setData({
+      loginBtnLoading: true,
+      loading: true // 设置loading状态
+    });
     
-    api.getUserInfo({
-      userId: userId,
+    console.log('开始三步登录流程...');
+
+    // 步骤一：直接从用户点击获取用户个人信息
+    getUserProfileInfo()
+      .then(profileInfo => {
+        // 步骤二：获取登录凭证
+        return getLoginCode().then(loginCodeResult => {
+          // 步骤三：完成登录过程
+          return completeLogin(loginCodeResult.code, profileInfo);
+        });
+      })
+      .then(loginResult => {
+        console.log('登录成功, 完整返回数据:', loginResult ? JSON.stringify(loginResult).substring(0, 200) + '...' : '无返回数据');
+        
+        // 使用令牌和用户信息
+        console.log('用户信息:', loginResult.user || loginResult.userInfo);
+        console.log('JWT令牌:', loginResult.token || loginResult.jwt);
+        
+        // 首先确保获取到了有效的token和user数据
+        const token = loginResult.token || loginResult.jwt;
+        const userData = loginResult.user || loginResult.userInfo || {};
+        
+        if (!token) {
+          console.error('登录成功但未获得有效token!');
+          tt.showToast({
+            title: '登录失败: 未获得有效令牌',
+            icon: 'none'
+          });
+          
+          this.setData({
+            loginBtnLoading: false,
+            loading: false // 重置loading状态
+          });
+          return;
+        }
+        
+        // 显示成功消息
+        tt.showToast({
+          title: '登录成功',
+          icon: 'success',
+          duration: 2000
+        });
+        
+        // 直接再次保存token到本地，以确保保存成功
+        try {
+          console.log('在页面中直接保存token');
+          tt.setStorageSync('token', token);
+          
+          // 保存用户信息
+          const userInfoStr = typeof userData === 'object' ? JSON.stringify(userData) : userData;
+          tt.setStorageSync('userInfo', userInfoStr);
+          
+          // 保存登录时间
+          tt.setStorageSync('loginTime', Date.now());
+          
+          console.log('token直接保存完成');
+        } catch (err) {
+          console.error('在页面中直接保存token失败:', err);
+        }
+        
+        // 更新页面状态
+        this.setData({
+          isLogin: true,
+          userInfo: userData,
+          stats: {
+            followingCount: userData.followingCount || userData.stats?.followingCount || 0,
+            followerCount: userData.followerCount || userData.stats?.followerCount || 0,
+            likeCount: userData.likeCount || userData.stats?.likeCount || 0,
+            collectionsCount: userData.collectionsCount || userData.stats?.collectionsCount || 0
+          },
+          loginBtnLoading: false,
+          loading: false // 确保重置loading状态
+        });
+        
+        // 登录成功后立即加载收藏视频
+        console.log('登录成功，立即加载收藏视频');
+        setTimeout(() => {
+          this.getFavoriteVideos();
+        }, 100);
+      })
+      .catch(err => {
+        console.error('登录失败:', err);
+        
+        tt.showToast({
+          title: err.message || '登录失败，请重试',
+          icon: 'none'
+        });
+        
+        this.setData({
+          loginBtnLoading: false,
+          loading: false // 确保错误时也重置loading状态
+        });
+      });
+  },
+  
+  // 获取收藏视频列表
+  getFavoriteVideos: function (loadMore = false) {
+    console.log('getFavoriteVideos: 开始加载收藏视频');
+    
+    // 强制检查登录状态
+    let isUserLoggedIn = false;
+    
+    // 先检查页面状态
+    if (this.data.isLogin) {
+      console.log('页面状态显示已登录');
+      isUserLoggedIn = true;
+    } else {
+      // 直接检查本地存储
+      try {
+        const token = tt.getStorageSync('token');
+        if (token) {
+          console.log('本地存储有token，认为已登录');
+          isUserLoggedIn = true;
+          
+          // 更新页面状态
+          this.setData({
+            isLogin: true
+          });
+        }
+      } catch (e) {
+        console.error('直接检查token失败:', e);
+      }
+      
+      // 最后使用isLoggedIn函数
+      if (!isUserLoggedIn) {
+        isUserLoggedIn = isLoggedIn();
+        console.log('isLoggedIn()返回:', isUserLoggedIn);
+      }
+    }
+    
+    if (!isUserLoggedIn) {
+      console.log('getFavoriteVideos: 用户未登录，不加载收藏视频');
+      this.setData({ loading: false });
+      return;
+    }
+    
+    console.log('getFavoriteVideos: 用户已登录，开始加载收藏');
+    this.setData({
+      loading: true
+    });
+
+    // 使用真实API获取收藏列表
+    api.getFavoriteVideos({
+      page: loadMore ? this.data.favoritesPage : 1,
+      pageSize: this.data.pageSize,
       success: (res) => {
         if (res.code === 0 && res.data) {
-          this.setData({
-            userInfo: res.data,
-            stats: {
-              followingCount: res.data.followingCount || 0,
-              followerCount: res.data.followerCount || 0,
-              likeCount: res.data.likeCount || 0
-            }
-          });
+          const videoList = res.data.videos || [];
+          const pagination = res.data.pagination || {};
+          
+          console.log('获取收藏视频成功:', videoList.length, '条记录');
+          
+          if (videoList.length > 0) {
+            console.log('第一个视频示例:', JSON.stringify(videoList[0]));
+          }
+          
+          if (loadMore) {
+            // 加载更多模式，追加数据
+            this.setData({
+              videos: [...this.data.videos, ...videoList],
+              favoritesPage: this.data.favoritesPage + 1,
+              hasMoreFavorites: pagination.hasMore || false,
+              loading: false
+            });
+          } else {
+            // 首次加载，替换数据
+            this.setData({
+              videos: videoList,
+              favoritesPage: 2, // 下一页从2开始
+              hasMoreFavorites: pagination.hasMore || false,
+              loading: false
+            });
+          }
         } else {
+          console.error('获取收藏视频失败, 错误响应:', res);
+          this.setData({ 
+            loading: false,
+            videos: [] // 设置为空数组，显示空白界面
+          });
+          
+          // 显示错误提示
           tt.showToast({
-            title: res.msg || '获取用户信息失败',
+            title: res.msg || '获取收藏视频失败',
             icon: 'none'
           });
         }
       },
       fail: (err) => {
-        console.error('获取用户信息失败', err);
+        console.error('获取收藏视频请求失败:', err);
+        this.setData({ 
+          loading: false,
+          videos: [] // 设置为空数组，显示空白界面
+        });
+        
+        // 显示错误提示
         tt.showToast({
-          title: '获取用户信息失败',
+          title: '获取收藏视频失败，请重试',
           icon: 'none'
         });
       }
     });
   },
   
-  // 获取收藏视频列表
-  getFavoriteVideos: function (loadMore = false) {
-    if (!this.data.isLogin) return;
+  // 刷新收藏列表
+  refreshCollections: function() {
+    console.log('手动刷新收藏列表');
+    tt.showLoading({
+      title: '刷新中...'
+    });
     
-    // 使用模拟数据
+    // 重置页面
     this.setData({
+      favoritesPage: 1,
       loading: true
     });
     
-    // 模拟网络请求延迟
+    // 重新获取收藏列表
     setTimeout(() => {
-      // 构建模拟数据
-      const mockVideos = [
-        {
-          id: '1001',
-          title: '犬父定乾坤',
-          coverUrl: 'https://via.placeholder.com/240x320',
-          duration: 1800, // 30分钟 
-          playCount: 7580000
-        },
-        {
-          id: '1002',
-          title: '如何获得第一笔投资',
-          coverUrl: 'https://via.placeholder.com/240x320',
-          duration: 1500, // 25分钟
-          playCount: 3250000
-        },
-        {
-          id: '1003',
-          title: '从零到一：打造爆款产品',
-          coverUrl: 'https://via.placeholder.com/240x320',
-          duration: 1200, // 20分钟
-          playCount: 4690000
-        }
-      ];
-      
-      if (loadMore) {
-        // 模拟加载更多
-        this.setData({
-          videos: [...this.data.videos, ...mockVideos],
-          favoritesPage: this.data.favoritesPage + 1,
-          hasMoreFavorites: this.data.favoritesPage < 3, // 只模拟3页数据
-          loading: false
-        });
-      } else {
-        this.setData({
-          videos: mockVideos,
-          favoritesPage: 2,
-          hasMoreFavorites: true,
-          loading: false
-        });
-      }
-    }, 500);
-  },
-  
-  // 获取观看历史列表
-  getHistoryVideos: function (loadMore = false) {
-    if (!this.data.isLogin) return;
-    
-    this.setData({
-      loading: true
-    });
-    
-    // 模拟网络请求延迟
-    setTimeout(() => {
-      // 构建模拟数据
-      const mockVideos = [
-        {
-          id: '2001',
-          title: '创业融资指南',
-          coverUrl: 'https://via.placeholder.com/240x320',
-          duration: 1800, // 30分钟 
-          playCount: 5240000,
-          progress: 75 // 观看进度，百分比
-        },
-        {
-          id: '2002',
-          title: '社交媒体营销技巧',
-          coverUrl: 'https://via.placeholder.com/240x320',
-          duration: 1500, // 25分钟
-          playCount: 3120000,
-          progress: 100 // 已看完
-        },
-        {
-          id: '2003',
-          title: '创业公司法律风险防范',
-          coverUrl: 'https://via.placeholder.com/240x320',
-          duration: 1200, // 20分钟
-          playCount: 2860000,
-          progress: 30 // 看了一部分
-        }
-      ];
-      
-      if (loadMore) {
-        // 模拟加载更多
-        this.setData({
-          videos: [...this.data.videos, ...mockVideos],
-          historyPage: this.data.historyPage + 1,
-          hasMoreHistory: this.data.historyPage < 3, // 只模拟3页数据
-          loading: false
-        });
-      } else {
-        this.setData({
-          videos: mockVideos,
-          historyPage: 2,
-          hasMoreHistory: true,
-          loading: false
-        });
-      }
-    }, 500);
-  },
-  
-  // 切换标签
-  switchTab: function (e) {
-    const tab = e.currentTarget.dataset.tab;
-    
-    if (this.data.activeTab === tab) return;
-    
-    this.setData({
-      activeTab: tab,
-      videos: []
-    });
-    
-    if (tab === 'favorites') {
       this.getFavoriteVideos();
-    } else if (tab === 'history') {
-      this.getHistoryVideos();
+      tt.hideLoading();
+      
+      // 显示提示信息
+      tt.showToast({
+        title: '已刷新',
+        icon: 'success',
+        duration: 1500
+      });
+    }, 1000);
+  },
+  
+  // 图片加载失败的处理函数
+  onCoverImageError: function(e) {
+    const index = e.currentTarget.dataset.index;
+    console.log('封面图片加载失败，索引:', index);
+    
+    // 更新指定索引的视频封面为默认图片
+    const videos = this.data.videos;
+    if (videos[index]) {
+      videos[index].coverUrl = '../../assets/icons/video-placeholder.png';
+      this.setData({
+        videos: videos
+      });
     }
   },
-  
+
   // 点击视频卡片
   onTapVideo: function (e) {
+    // 获取视频ID和索引
     const videoId = e.currentTarget.dataset.id;
-    if (videoId) {
+    const videoIndex = e.currentTarget.dataset.index;
+    
+    if (!videoId && videoId !== 0) {
+      tt.showToast({
+        title: '无效的视频',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    try {
+      // 获取完整的视频数据
+      const videoData = this.data.videos[videoIndex];
+      
+      if (!videoData) {
+        console.error('未找到视频数据，索引:', videoIndex);
+        return;
+      }
+      
+      // 先将数据转换为JSON字符串，然后进行URL编码
+      const encodedVideoData = encodeURIComponent(JSON.stringify(videoData));
+      
+      // 传递完整视频信息到详情页
+      tt.navigateTo({
+        url: `/pages/videoDetail/videoDetail?videoData=${encodedVideoData}`
+      });
+    } catch (error) {
+      console.error('导航到视频详情时出错:', error);
+      
+      // 降级处理：仅使用ID导航
       tt.navigateTo({
         url: `/pages/videoDetail/videoDetail?id=${videoId}`
       });
@@ -270,87 +531,28 @@ Page({
     });
   },
   
-  // 去登录
-  goToLogin: function () {
-    tt.navigateTo({
-      url: '/pages/login/login'
-    });
-  },
-  
-  // 下拉刷新
-  onPullDownRefresh: function () {
-    if (this.data.activeTab === 'favorites') {
-      this.getFavoriteVideos();
-    } else if (this.data.activeTab === 'history') {
-      this.getHistoryVideos();
-    }
-    
-    setTimeout(() => {
-      tt.stopPullDownRefresh();
-    }, 1000);
-  },
-  
-  // 触底加载更多
-  onReachBottom: function () {
-    if (this.data.loading) return;
-    
-    if (this.data.activeTab === 'favorites' && this.data.hasMoreFavorites) {
-      this.getFavoriteVideos(true);
-    } else if (this.data.activeTab === 'history' && this.data.hasMoreHistory) {
-      this.getHistoryVideos(true);
-    }
-  },
-  
-  // 清空历史记录
-  clearHistory: function() {
-    if (!this.data.isLogin) return;
-    
+  // 退出登录
+  logout: function() {
+    console.log('退出登录');
     tt.showModal({
-      title: '清空历史记录',
-      content: '确定要清空所有观看历史吗？此操作不可恢复。',
+      title: '退出登录',
+      content: '确定要退出登录吗？',
       success: (res) => {
         if (res.confirm) {
+          // 调用退出登录方法
+          logout();
+          
+          // 更新页面状态
           this.setData({
-            loading: true
+            isLogin: false,
+            userInfo: null,
+            videos: [],
+            loading: false // 确保重置loading状态
           });
           
-          api.clearHistoryVideos({
-            success: (res) => {
-              if (res.code === 0) {
-                if (this.data.activeTab === 'history') {
-                  this.setData({
-                    videos: [],
-                    hasMoreHistory: false,
-                    loading: false
-                  });
-                }
-                
-                tt.showToast({
-                  title: '历史记录已清空',
-                  icon: 'success'
-                });
-              } else {
-                this.setData({
-                  loading: false
-                });
-                
-                tt.showToast({
-                  title: res.msg || '清空失败',
-                  icon: 'none'
-                });
-              }
-            },
-            fail: (err) => {
-              console.error('清空历史记录失败', err);
-              this.setData({
-                loading: false
-              });
-              
-              tt.showToast({
-                title: '清空失败，请重试',
-                icon: 'none'
-              });
-            }
+          tt.showToast({
+            title: '已退出登录',
+            icon: 'success'
           });
         }
       }
@@ -374,15 +576,107 @@ Page({
   
   // 导航到首页
   navigateToIndex: function() {
+    console.log('导航到首页');
     tt.switchTab({
-      url: '/pages/index/index'
+      url: '/pages/index/index',
+      success: (res) => {
+        console.log('成功导航到首页', res);
+      },
+      fail: (err) => {
+        console.error('导航到首页失败', err);
+        // 如果switchTab失败，尝试redirectTo
+        tt.redirectTo({
+          url: '/pages/index/index'
+        });
+      }
     });
   },
   
   // 导航到推荐页
   navigateToRecommend: function() {
+    console.log('导航到推荐页');
     tt.switchTab({
-      url: '/pages/recommend/recommend'
+      url: '/pages/recommend/recommend',
+      success: (res) => {
+        console.log('成功导航到推荐页', res);
+      },
+      fail: (err) => {
+        console.error('导航到推荐页失败', err);
+        // 如果switchTab失败，尝试redirectTo
+        tt.redirectTo({
+          url: '/pages/recommend/recommend'
+        });
+      }
+    });
+  },
+  
+  // 导航到收藏页
+  navigateToCollection: function() {
+    console.log('导航到收藏页');
+    tt.navigateTo({
+      url: '/pages/collection/collection',
+      success: (res) => {
+        console.log('成功导航到收藏页', res);
+      },
+      fail: (err) => {
+        console.error('导航到收藏页失败', err);
+        tt.showToast({
+          title: '导航失败，请稍后重试',
+          icon: 'none'
+        });
+      }
+    });
+  },
+  
+  // 导航到菜单项
+  navToMenuItem: function(e) {
+    const { path, auth } = e.currentTarget.dataset.item;
+    
+    // 检查是否需要登录
+    if (auth && !this.data.isLogin) {
+      tt.showModal({
+        title: '需要登录',
+        content: '该功能需要登录才能使用',
+        confirmText: '去登录',
+        success: (res) => {
+          if (res.confirm) {
+            this.handleLogin();
+          }
+        }
+      });
+      return;
+    }
+    
+    // 导航到对应页面
+    navigateTo(path);
+  },
+
+  // 编辑个人资料
+  editProfile: function() {
+    if (!this.data.isLogin) {
+      tt.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    navigateTo('/pages/profile/edit/edit');
+  },
+
+  // 导航到用户协议页面
+  goToAgreement: function() {
+    navigateTo('/pages/webview/webview', {
+      url: 'https://example.com/agreement',
+      title: '用户协议'
+    });
+  },
+
+  // 导航到隐私政策页面
+  goToPrivacy: function() {
+    navigateTo('/pages/webview/webview', {
+      url: 'https://example.com/privacy',
+      title: '隐私政策'
     });
   }
 }); 

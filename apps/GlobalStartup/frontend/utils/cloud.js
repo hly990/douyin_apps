@@ -3,149 +3,221 @@
  * 封装抖音小程序云开发API，提供云函数调用、云数据库操作和云存储功能
  */
 
-// 初始化云开发环境
-const initCloud = () => {
-  if (!tt.cloud) {
-    console.error('请使用抖音/头条等字节系小程序，并确保基础库版本支持云开发');
-    return false;
-  }
-  
-  try {
-    tt.cloud.init({
-      env: 'production', // 云环境ID，实际开发中替换为你的环境ID
+// 全局云实例缓存
+let cloudInstance = null;
+
+// 获取云开发实例（支持缓存）
+const getCloudInstance = () => {
+  return new Promise((resolve, reject) => {
+    // 如果已有实例且未过期，直接返回
+    if (cloudInstance) {
+      resolve(cloudInstance);
+      return;
+    }
+
+    // 登录并创建云实例
+    tt.login({
+      success: (res) => {
+        try {
+          console.log('登录成功，创建云实例');
+          const cloud = tt.createCloud({
+            envID: 'env-vsLX8rVGBn', // 你的环境ID
+          });
+          
+          // 缓存云实例
+          cloudInstance = cloud;
+          resolve(cloud);
+        } catch (err) {
+          console.error('创建云实例失败', err);
+          reject(err);
+        }
+      },
+      fail: (err) => {
+        console.error('登录失败', err);
+        reject(err);
+      }
     });
-    return true;
-  } catch (e) {
-    console.error('云开发初始化失败', e);
-    return false;
+  });
+};
+
+// 获取数据库实例
+const getDatabase = async () => {
+  try {
+    const cloud = await getCloudInstance();
+    console.log('获取数据库实例');
+    return await cloud.database();
+  } catch (err) {
+    console.error('获取数据库实例失败', err);
+    throw err;
   }
 };
 
 // 调用云函数
-const callFunction = (name, data = {}) => {
-  return new Promise((resolve, reject) => {
-    if (!initCloud()) {
-      reject(new Error('云环境初始化失败'));
-      return;
-    }
+const callFunction = async (name, data = {}) => {
+  try {
+    console.log(`调用云函数: ${name}`, data);
+    const cloud = await getCloudInstance();
     
-    tt.cloud.callFunction({
-      name,
-      data,
-      success: (res) => {
-        resolve(res.result);
-      },
-      fail: (err) => {
-        console.error(`云函数 ${name} 调用失败`, err);
-        reject(err);
-      }
+    return new Promise((resolve, reject) => {
+      cloud.callFunction({
+        name,
+        data,
+        success: (res) => {
+          console.log(`云函数 ${name} 调用成功:`, res);
+          resolve(res.result);
+        },
+        fail: (err) => {
+          console.error(`云函数 ${name} 调用失败:`, err);
+          reject(err);
+        }
+      });
     });
-  });
-};
-
-// 云数据库集合
-const db = tt.cloud ? tt.cloud.database() : null;
-
-// 获取云数据库集合
-const collection = (name) => {
-  if (!db) {
-    console.error('云数据库初始化失败');
-    return null;
+  } catch (err) {
+    console.error(`调用云函数 ${name} 失败:`, err);
+    throw err;
   }
-  return db.collection(name);
 };
 
-// 上传文件到云存储
-const uploadFile = (cloudPath, filePath) => {
-  return new Promise((resolve, reject) => {
-    if (!initCloud()) {
-      reject(new Error('云环境初始化失败'));
-      return;
-    }
-    
-    tt.cloud.uploadFile({
-      cloudPath, // 云存储路径
-      filePath, // 本地文件路径
-      success: (res) => {
-        resolve(res.fileID);
-      },
-      fail: (err) => {
-        console.error('文件上传失败', err);
-        reject(err);
-      }
-    });
-  });
+// 查询集合数据
+const queryCollection = async (collectionName, limit = 10) => {
+  try {
+    console.log(`查询集合: ${collectionName}, 限制: ${limit}`);
+    const db = await getDatabase();
+    return await db.collection(collectionName).limit(limit).get();
+  } catch (err) {
+    console.error(`查询集合 ${collectionName} 失败:`, err);
+    throw err;
+  }
 };
 
-// 从云存储下载文件
-const downloadFile = (fileID) => {
-  return new Promise((resolve, reject) => {
-    if (!initCloud()) {
-      reject(new Error('云环境初始化失败'));
-      return;
-    }
-    
-    tt.cloud.downloadFile({
-      fileID,
-      success: (res) => {
-        resolve(res.tempFilePath);
-      },
-      fail: (err) => {
-        console.error('文件下载失败', err);
-        reject(err);
-      }
-    });
-  });
+// 添加数据到集合
+const addDocument = async (collectionName, data) => {
+  try {
+    console.log(`添加数据到集合: ${collectionName}`, data);
+    const db = await getDatabase();
+    return await db.collection(collectionName).add({ data });
+  } catch (err) {
+    console.error(`添加数据到集合 ${collectionName} 失败:`, err);
+    throw err;
+  }
 };
 
 // 获取云存储文件临时链接
-const getTempFileURL = (fileList) => {
-  return new Promise((resolve, reject) => {
-    if (!initCloud()) {
-      reject(new Error('云环境初始化失败'));
-      return;
-    }
+const getTempFileURL = async (fileList) => {
+  try {
+    console.log('获取云存储文件临时链接:', fileList);
+    const cloud = await getCloudInstance();
     
-    tt.cloud.getTempFileURL({
-      fileList: Array.isArray(fileList) ? fileList : [fileList],
-      success: (res) => {
-        resolve(res.fileList);
-      },
-      fail: (err) => {
-        console.error('获取临时链接失败', err);
-        reject(err);
-      }
+    // 确保参数正确
+    const files = Array.isArray(fileList) ? fileList : [fileList];
+    
+    return new Promise((resolve, reject) => {
+      cloud.getTempFileURL({
+        fileList: files,
+        success: (res) => {
+          console.log('获取临时链接成功:', res);
+          resolve(res.fileList);
+        },
+        fail: (err) => {
+          console.error('获取临时链接失败:', err);
+          reject(err);
+        }
+      });
     });
-  });
+  } catch (err) {
+    console.error('获取临时链接失败:', err);
+    throw err;
+  }
+};
+
+// 上传文件到云存储
+const uploadFile = async (cloudPath, filePath) => {
+  try {
+    console.log(`上传文件: ${filePath} -> ${cloudPath}`);
+    const cloud = await getCloudInstance();
+    
+    return new Promise((resolve, reject) => {
+      cloud.uploadFile({
+        cloudPath,
+        filePath,
+        success: (res) => {
+          console.log('文件上传成功:', res);
+          resolve(res.fileID);
+        },
+        fail: (err) => {
+          console.error('文件上传失败:', err);
+          reject(err);
+        }
+      });
+    });
+  } catch (err) {
+    console.error('上传文件失败:', err);
+    throw err;
+  }
+};
+
+// 下载云存储文件
+const downloadFile = async (fileID) => {
+  try {
+    console.log(`下载文件: ${fileID}`);
+    const cloud = await getCloudInstance();
+    
+    return new Promise((resolve, reject) => {
+      cloud.downloadFile({
+        fileID,
+        success: (res) => {
+          console.log('文件下载成功:', res);
+          resolve(res.tempFilePath);
+        },
+        fail: (err) => {
+          console.error('文件下载失败:', err);
+          reject(err);
+        }
+      });
+    });
+  } catch (err) {
+    console.error('下载文件失败:', err);
+    throw err;
+  }
 };
 
 // 删除云存储文件
-const deleteFile = (fileList) => {
-  return new Promise((resolve, reject) => {
-    if (!initCloud()) {
-      reject(new Error('云环境初始化失败'));
-      return;
-    }
+const deleteFile = async (fileList) => {
+  try {
+    console.log('删除文件:', fileList);
+    const cloud = await getCloudInstance();
     
-    tt.cloud.deleteFile({
-      fileList: Array.isArray(fileList) ? fileList : [fileList],
-      success: (res) => {
-        resolve(res.fileList);
-      },
-      fail: (err) => {
-        console.error('删除文件失败', err);
-        reject(err);
-      }
+    // 确保参数正确
+    const files = Array.isArray(fileList) ? fileList : [fileList];
+    
+    return new Promise((resolve, reject) => {
+      cloud.deleteFile({
+        fileList: files,
+        success: (res) => {
+          console.log('文件删除成功:', res);
+          resolve(res.fileList);
+        },
+        fail: (err) => {
+          console.error('文件删除失败:', err);
+          reject(err);
+        }
+      });
     });
-  });
+  } catch (err) {
+    console.error('删除文件失败:', err);
+    throw err;
+  }
 };
 
 // 导出云开发模块
 module.exports = {
+  getCloudInstance,
+  getDatabase,
   callFunction,
-  collection,
+  queryCollection,
+  addDocument,
+  getTempFileURL,
   uploadFile,
   downloadFile,
-  getTempFileURL,
   deleteFile
 }; 

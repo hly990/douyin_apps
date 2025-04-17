@@ -1,0 +1,41 @@
+{
+    "condition": {
+        "search": {
+            "list": []
+        },
+        "conversation": {
+            "list": []
+        },
+        "plugin": {
+            "list": []
+        },
+        "game": {
+            "list": []
+        },
+        "miniprogram": {
+            "current": 1,
+            "list": [
+                {
+                    "id": 0,
+                    "name": "首页",
+                    "pathName": "pages/index/index",
+                    "query": "",
+                    "scene": "",
+                    "launchFrom": "",
+                    "location": "",
+                    "mockUpdateType": "Noupdate"
+                },
+                {
+                    "id": 1,
+                    "name": "视频详情",
+                    "pathName": "pages/videoDetail/videoDetail",
+                    "query": "id=1001",
+                    "scene": "",
+                    "launchFrom": "",
+                    "location": "",
+                    "mockUpdateType": "Noupdate"
+                }
+            ]
+        }
+    }
+}

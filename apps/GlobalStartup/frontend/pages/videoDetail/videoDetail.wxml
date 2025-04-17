@@ -8,9 +8,13 @@
       show-center-play-btn="true"
       controls
       autoplay
-      loop="true"
+      loop="{{false}}"
       object-fit="cover"
       show-progress="true"
+      bindplay="onVideoPlay"
+      bindpause="onVideoPause"
+      bindended="onVideoEnded"
+      id="myVideo"
     ></video>
   </view>
 
@@ -98,7 +102,7 @@
   <view class="related-videos">
     <view class="section-title">相关推荐</view>
     
-    <view class="related-video-item" wx:for="{{relatedVideos}}" wx:key="id" bindtap="navigateToVideo" data-id="{{item.id}}">
+    <view class="related-video-item" wx:for="{{relatedVideos}}" wx:key="id" bindtap="onRelatedVideoTap" data-id="{{item.id}}" data-index="{{index}}">
       <view class="related-video-cover">
         <image src="{{item.coverUrl}}" mode="aspectFill" style="width: 100%; height: 100%; border-radius: 10rpx;"></image>
         <view class="video-duration">{{utils.formatDuration(item.duration)}}</view>

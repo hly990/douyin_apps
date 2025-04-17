@@ -1,0 +1,155 @@
+/* 云数据库测试页面样式 */
+
+.container {
+  padding: 30rpx 20rpx;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.back-button {
+  padding: 10rpx 20rpx;
+  font-size: 28rpx;
+  background-color: #f1f1f1;
+  border-radius: 8rpx;
+  margin-right: 20rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  flex: 1;
+  text-align: center;
+}
+
+.section {
+  margin-bottom: 40rpx;
+  padding: 20rpx;
+  background-color: #ffffff;
+  border-radius: 12rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  padding-bottom: 10rpx;
+  border-bottom: 1rpx solid #f1f1f1;
+}
+
+.test-button {
+  margin: 10rpx 0;
+  padding: 16rpx 0;
+  background-color: #FE2C55;
+  color: #ffffff;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+}
+
+.result {
+  margin-top: 20rpx;
+  padding: 20rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  overflow: hidden;
+}
+
+.result.success {
+  background-color: #f2fef2;
+  border: 1rpx solid #d0f0d0;
+}
+
+.result.fail {
+  background-color: #fff2f2;
+  border: 1rpx solid #f0d0d0;
+}
+
+.result-data {
+  display: block;
+  margin-top: 10rpx;
+  background-color: #f9f9f9;
+  padding: 20rpx;
+  border-radius: 6rpx;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 24rpx;
+  max-height: 400rpx;
+  overflow-y: auto;
+}
+
+.env-info {
+  padding: 20rpx;
+  background-color: #f9f9f9;
+  border-radius: 8rpx;
+  margin-bottom: 20rpx;
+}
+
+.diagnostic-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.diagnostic-info text {
+  font-size: 24rpx;
+  color: #666;
+  margin-top: 10rpx;
+}
+
+.nav-buttons {
+  margin-bottom: 30rpx;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  color: #333;
+}
+
+.btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background-color: #FE2C55;
+  color: #fff;
+  border-radius: 44rpx;
+  margin-bottom: 30rpx;
+}
+
+.btn-outline {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background-color: #fff;
+  color: #FE2C55;
+  border: 2rpx solid #FE2C55;
+  border-radius: 44rpx;
+  margin-bottom: 30rpx;
+}
+
+.success {
+  color: #52c41a;
+}
+
+.error {
+  color: #f5222d;
+} 

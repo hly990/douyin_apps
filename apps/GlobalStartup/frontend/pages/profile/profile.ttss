@@ -1,7 +1,14 @@
-/* 整体容器 */
-.profile-container {
+/* 容器 */
+.container {
+  position: relative;
+  width: 100%;
   min-height: 100vh;
+  padding-bottom: 100rpx;
   background-color: #f8f8f8;
+  box-sizing: border-box;
+}
+
+.content-area {
   padding-bottom: 120rpx; /* 确保底部有足够的空间，不被tabBar遮挡 */
 }
 
@@ -125,7 +132,7 @@
   border-bottom: 1rpx solid #e6e6e6;
 }
 
-.tab-item {
+.tab-container .tab-item {
   flex: 1;
   height: 80rpx;
   line-height: 80rpx;
@@ -135,12 +142,12 @@
   position: relative;
 }
 
-.tab-item.active {
+.tab-container .tab-item.active {
   color: #FE2C55;
   font-weight: 600;
 }
 
-.tab-item.active::after {
+.tab-container .tab-item.active::after {
   content: '';
   position: absolute;
   left: 50%;
@@ -205,13 +212,18 @@
   font-size: 20rpx;
 }
 
+/* 视频标题 */
 .video-title {
-  font-size: 24rpx;
-  color: #333;
-  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: #666;
+  margin-top: 10rpx;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  height: 68rpx; /* 设置固定高度 */
 }
 
 /* 空状态 */
@@ -305,23 +317,34 @@
   font-size: 26rpx;
 }
 
-/* 新的底部导航栏样式 */
-.profile-tab-bar {
+/* 底部安全区域 */
+.safe-area-bottom {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100rpx;
+  background-color: transparent;
+  z-index: 1;
+}
+
+/* 页面级TabBar */
+.page-tab-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   height: 100rpx;
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
   display: flex;
   justify-content: space-around;
+  padding-bottom: 0;
   border-top: 1rpx solid #f1f1f1;
-  padding-bottom: constant(safe-area-inset-bottom);
-  padding-bottom: env(safe-area-inset-bottom);
-  z-index: 9999;
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.1);
+  z-index: 1000;
 }
 
-.profile-tab-item {
+.page-tab-bar .tab-item {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -330,18 +353,386 @@
   padding: 8rpx 0;
 }
 
-.profile-tab-icon {
+.page-tab-bar .tab-icon {
   font-size: 40rpx;
   margin-bottom: 4rpx;
-  color: #8a8a8a;
+  color: #999;
 }
 
-.profile-tab-text {
+.page-tab-bar .tab-text {
   font-size: 24rpx;
-  color: #8a8a8a;
+  color: #999;
 }
 
-.profile-tab-item.profile-tab-active .profile-tab-icon,
-.profile-tab-item.profile-tab-active .profile-tab-text {
+.page-tab-bar .tab-item.active .tab-icon,
+.page-tab-bar .tab-item.active .tab-text {
   color: #FE2C55;
+}
+
+/* 底部安全区域 */
+.safe-area-inset-bottom {
+  height: env(safe-area-inset-bottom);
+  width: 100%;
+  background-color: transparent;
+}
+
+/* 用户信息栏样式 */
+.user-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 30rpx;
+  margin-bottom: 20rpx;
+  background-color: #fff;
+  border-radius: 10rpx;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+}
+
+.user-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+}
+
+.user-name {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.logout-btn {
+  background-color: #f44336;
+  color: white;
+  font-size: 24rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 30rpx;
+  margin: 0;
+  min-width: 120rpx;
+  height: 60rpx;
+  line-height: 44rpx;
+}
+
+/* 添加快捷功能区样式 */
+.shortcut-container {
+  display: flex;
+  width: 100%;
+  padding: 16px;
+  background-color: #fff;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.shortcut-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  position: relative;
+}
+
+.shortcut-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background-color: #f0f0f0;
+}
+
+.shortcut-icon {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.shortcut-text {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.shortcut-count {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 个人资料页样式 */
+
+/* 容器 */
+.profile-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+/* 头部个人信息 */
+.profile-header {
+  background-color: #ffffff;
+  padding: 32rpx;
+  margin-bottom: 20rpx;
+  border-radius: 0 0 16rpx 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.profile-header.not-login {
+  padding-bottom: 20rpx;
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-container {
+  position: relative;
+  margin-right: 24rpx;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  border: 2rpx solid #f0f0f0;
+  background-color: #f0f0f0;
+}
+
+.edit-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 40rpx;
+  height: 40rpx;
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.edit-icon {
+  font-size: 24rpx;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.nickname {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 8rpx;
+}
+
+.user-id {
+  font-size: 24rpx;
+  color: #888888;
+  margin-bottom: 8rpx;
+}
+
+.bio {
+  font-size: 26rpx;
+  color: #666666;
+  margin-top: 8rpx;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 400rpx;
+}
+
+.login-tip {
+  font-size: 26rpx;
+  color: #888888;
+  margin-top: 8rpx;
+}
+
+/* 按钮样式 */
+.action-btn {
+  margin: 24rpx 0;
+}
+
+.btn-login {
+  background-color: #ff4d4f;
+  color: #ffffff;
+  font-size: 28rpx;
+  padding: 12rpx 48rpx;
+  border-radius: 32rpx;
+  border: none;
+}
+
+.btn-logout {
+  background-color: #f5f5f5;
+  color: #666666;
+  font-size: 28rpx;
+  padding: 12rpx 48rpx;
+  border-radius: 32rpx;
+  border: 1rpx solid #dddddd;
+}
+
+/* 用户统计信息 */
+.user-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #888888;
+  margin-top: 8rpx;
+}
+
+/* 菜单部分 */
+.profile-menu {
+  flex: 1;
+}
+
+.menu-section {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  margin: 0 20rpx 20rpx;
+  padding: 20rpx 0;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 28rpx;
+  color: #888888;
+  padding: 10rpx 30rpx;
+}
+
+.menu-items {
+  padding: 10rpx 0;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100rpx;
+  padding: 0 30rpx;
+}
+
+.item-left {
+  display: flex;
+  align-items: center;
+}
+
+.item-icon {
+  width: 48rpx;
+  height: 48rpx;
+  margin-right: 20rpx;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+/* 图标样式 */
+.favorite {
+  background-image: url('/assets/images/icons/favorite.png');
+}
+
+.history {
+  background-image: url('/assets/images/icons/history.png');
+}
+
+.settings {
+  background-image: url('/assets/images/icons/settings.png');
+}
+
+.agreement {
+  background-image: url('/assets/images/icons/agreement.png');
+}
+
+.privacy {
+  background-image: url('/assets/images/icons/privacy.png');
+}
+
+.version {
+  background-image: url('/assets/images/icons/version.png');
+}
+
+.item-text {
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.item-right {
+  display: flex;
+  align-items: center;
+}
+
+.arrow {
+  width: 32rpx;
+  height: 32rpx;
+  background-image: url('/assets/images/icons/arrow-right.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.version-text {
+  font-size: 26rpx;
+  color: #888888;
+}
+
+/* 底部信息 */
+.profile-footer {
+  text-align: center;
+  padding: 30rpx 0;
+  margin-top: auto;
+}
+
+.footer-text {
+  font-size: 24rpx;
+  color: #bbbbbb;
+}
+
+/* 加载指示器 */
+.loading-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.loading {
+  width: 80rpx;
+  height: 80rpx;
+  border: 8rpx solid #f3f3f3;
+  border-top: 8rpx solid #ff4d4f;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 } 

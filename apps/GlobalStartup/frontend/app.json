@@ -4,13 +4,22 @@
     "pages/recommend/recommend",
     "pages/profile/profile",
     "pages/videoDetail/videoDetail",
-    "pages/search/search"
+    "pages/search/search",
+    "pages/topic/topic",
+    "pages/favorites/favorites",
+    "pages/login/login",
+    "pages/webview/webview",
+    "pages/cloudTest/cloudTest",
+    "pages/cloudTest/externalApiDemo",
+    "pages/collection/collection",
+    "pages/profile/login-test"
   ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#fff",
     "navigationBarTitleText": "全球创业视频",
-    "navigationBarTextStyle": "black"
+    "navigationBarTextStyle": "black",
+    "disableSwipeBack": false
   },
   "tabBar": {
     "custom": true,
@@ -33,9 +42,14 @@
       }
     ]
   },
+  "customTabBar": {
+    "component": true,
+    "path": "custom-tab-bar/index"
+  },
   "networkTimeout": {
     "request": 10000,
     "downloadFile": 10000
   },
-  "debug": true
-} 
+  "debug": true,
+  "cloud": true
+}

@@ -1,0 +1,12 @@
+{
+  "name": "del-video",
+  "version": "1.0.0",
+  "description": "从云数据库删除视频及关联数据",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {}
+} 

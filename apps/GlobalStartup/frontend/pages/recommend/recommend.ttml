@@ -1,9 +1,4 @@
 <view class="container">
-  <!-- 页面标题 -->
-  <view class="header">
-    <text class="header-title">为你推荐</text>
-  </view>
-  
   <!-- 视频播放区域 - 类似抖音的上下滑动切换视频 -->
   <swiper 
     class="video-swiper" 
@@ -11,7 +6,7 @@
     current="{{currentIndex}}" 
     duration="300"
     bindchange="handleSwiperChange"
-    style="height: {{screenHeight}}px">
+    style="height: 100vh;">
     <block tt:for="{{videoList}}" tt:key="id">
       <swiper-item class="video-swiper-item">
         <video 
@@ -28,6 +23,8 @@
           bindpause="handleVideoPause"
           bindended="handleVideoEnded"
           bindtap="handleVideoTap"
+          binderror="handleVideoError"
+          bindloadedmetadata="handleVideoMetadataLoaded"
         ></video>
 
         <!-- 侧边操作栏 -->
@@ -53,27 +50,24 @@
         <view class="play-pause-btn" tt:if="{{!isPlaying && currentIndex === index}}" bindtap="handleVideoTap">
           <text class="play-icon">▶</text>
         </view>
+        
+        <!-- 视频错误提示 -->
+        <view class="error-container" tt:if="{{showError && currentIndex === index}}">
+          <view class="error-box">
+            <text class="error-icon">⚠️</text>
+            <text class="error-message">{{errorInfo || '视频加载失败'}}</text>
+            <button class="retry-button" bindtap="retryPlayVideo">点击重试</button>
+          </view>
+        </view>
       </swiper-item>
     </block>
   </swiper>
   
-  <!-- 底部安全区域 -->
+  <!-- 底部安全区域 - 设置固定高度 -->
   <view class="safe-area-bottom"></view>
   
-  <!-- 加载状态 -->
-  <view class="loading-indicator" tt:if="{{isLoading}}">
-    <view class="loading-spinner"></view>
-    <text class="loading-text">视频加载中...</text>
-  </view>
-  
-  <!-- 空状态 -->
-  <view class="empty-state" tt:if="{{videoList.length === 0 && !isLoading}}">
-    <text class="empty-icon">📺</text>
-    <text class="empty-text">暂无推荐视频</text>
-  </view>
-  
-  <!-- 添加一个固定在底部的导航栏 -->
-  <view class="fixed-tab-bar">
+  <!-- 页面级TabBar -->
+  <view class="page-tab-bar">
     <view class="tab-item" bindtap="navigateToIndex">
       <view class="tab-icon">🏠</view>
       <view class="tab-text">首页</view>
@@ -86,5 +80,21 @@
       <view class="tab-icon">👤</view>
       <view class="tab-text">我的</view>
     </view>
+  </view>
+  
+  <!-- 底部安全区域 -->
+  <view class="safe-area-inset-bottom"></view>
+  
+  <!-- 加载状态 -->
+  <view class="loading-indicator" tt:if="{{isLoading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">视频加载中...</text>
+  </view>
+  
+  <!-- 空状态 -->
+  <view class="empty-state" tt:if="{{videoList.length === 0 && !isLoading}}">
+    <text class="empty-icon">📺</text>
+    <text class="empty-text">暂无推荐视频</text>
+    <button class="retry-button" bindtap="loadVideoList" data-refresh="true">刷新</button>
   </view>
 </view> 

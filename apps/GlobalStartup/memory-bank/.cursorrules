@@ -5,6 +5,9 @@
 - 前后端分离架构
 - 以视频内容为核心的应用
 - 组件化UI开发方案
+- 每个小程序在独立目录下开发
+- 目录结构遵循 frontend/backend 分离模式
+- 首个小程序GlobalStartup已启动开发
 
 ## 文件命名规范
 - 页面文件夹: camelCase (如 videoDetail)
@@ -63,4 +66,675 @@
 - 推荐算法需考虑用户兴趣和内容质量
 - 用户行为数据需进行脱敏处理
 
-注意：此文件将随着项目进展不断更新，以捕获更多的项目模式和见解。 
+## 用户偏好
+- 记忆库结构已经初始化并已更新
+- 使用 Markdown 文档进行项目文档记录
+- Git 作为版本控制系统
+- 使用MCP框架开发抖音小程序
+
+## 项目决策
+- GlobalStartup采用Node.js后端
+- 数据库选用MongoDB存储视频和用户数据
+- 前端使用抖音MCP框架开发
+- 视频内容以海外创业为主题
+
+## 已知挑战
+- 抖音小程序开发规范需要遵循
+- 视频播放性能需要优化
+- 用户体验流畅度要求高
+- 需要实现跨平台兼容
+
+## 工作流程
+- 使用 memory-bank 记录项目进展和决策
+- 项目开发需要遵循抖音小程序规范
+- GlobalStartup先完成前端基础界面
+- 然后实现视频功能和后端API
+
+## GlobalStartup开发规则
+- 视频组件使用抖音原生组件
+- 用户界面符合抖音设计风格
+- 数据模型遵循MongoDB文档设计模式
+- API遵循RESTful设计风格
+
+## 抖音API使用规则
+- tt.getUserProfile 必须在用户点击事件中直接调用，不能在Promise链或异步函数中调用
+- 登录流程推荐顺序：先获取用户信息，成功后再获取登录code
+- 所有需要用户授权的API必须遵循抖音的直接点击要求
+- 处理UI样式时需考虑抖音开发者工具与实际设备的差异
+- 视频组件初始化需要考虑内存和性能优化
+
+## 授权登录经验总结
+- 前端与后端API端点需正确匹配，使用专用的抖音登录API而非通用认证接口
+- 数据格式需转换，特别是后端返回的token需映射为jwt以保持兼容性
+- 登录状态在整个应用中需保持一致，统一使用auth.js中的方法
+- 测试环境和生产环境的行为可能不同，需在真实设备上验证
+- 成功的登录流程必须严格按照：获取用户信息 -> 获取登录码 -> 完成登录 的顺序
+- **API参数命名一致性：使用profileInfo代替userInfo保持参数命名一致**
+- **确保参数传递格式正确，支持多种后端响应格式**
+- **登录功能需经过全流程测试验证，包括授权弹窗显示、用户信息获取和页面导航**
+
+## 错误处理模式
+- API错误需要提供用户友好提示
+- 网络错误需要实现重试机制
+- 授权失败需要提供明确的引导
+- 数据加载失败需要显示占位内容
+- 登录状态异常需要引导用户重新登录
+
+## 抖音小程序API调用规则
+
+1. **用户授权API必须直接从用户点击事件调用**
+
+   抖音小程序的一些关键API如`tt.getUserProfile`必须直接在用户点击事件处理函数中调用，不能通过Promise链或异步函数间接调用。违反此规则会导致API失败，并出现错误：`getUserProfile:fail must be invoked by user tap gesture`。
+
+   ```javascript
+   // ✓ 正确做法 - 直接在点击事件处理函数中调用
+   handleLogin: function() {
+     tt.getUserProfile({
+       desc: '用于完善会员资料',
+       success: (res) => { /* ... */ }
+     });
+   }
+   
+   // ✗ 错误做法 - 在Promise链或回调中间接调用
+   handleLogin: function() {
+     getLoginCode().then(() => {
+       tt.getUserProfile({ /* ... */ }); // 将失败
+     });
+   }
+   ```
+
+2. **三步登录流程模式**
+
+   针对抖音小程序的登录，我们采用三步分离式流程：
+   1. 先获取用户信息（必须在用户点击事件中直接调用）
+   2. 再获取登录码
+   3. 最后完成登录
+
+   这种模式确保遵循抖音API要求，同时提供更精细的错误处理和测试能力。
+
+3. **授权API必须提供用途说明**
+
+   调用`tt.getUserProfile`时，必须提供`desc`参数，清晰说明获取用户信息的用途。这不仅是API要求，也是提升用户信任的最佳实践。
+
+   ```javascript
+   tt.getUserProfile({
+     desc: '用于完善会员资料', // 必须提供，且描述要具体
+     success: (res) => { /* ... */ }
+   });
+   ```
+
+4. **登录态管理最佳实践**
+
+   - Token存储在`tt.setStorageSync('token', value)`
+   - 用户信息存储在`tt.setStorageSync('userInfo', value)`
+   - 登录时间记录为`tt.setStorageSync('loginTime', timestamp)`
+   - 登出时清理所有认证相关数据
+
+5. **测试策略**
+
+   对于认证相关功能，使用专门的测试页面(`login-test.js`)进行测试：
+   - 支持一键登录测试完整流程
+   - 支持分步测试每个登录步骤
+   - 提供详细的状态反馈和错误信息
+
+## 抖音小程序网络请求与导航最佳实践
+
+1. **请求超时处理注意事项**
+
+   在抖音小程序中使用`tt.request`时，如果设置了超时处理，必须确保在请求成功或失败时清除超时定时器，避免请求完成后仍触发超时处理：
+
+   ```javascript
+   // 正确的超时处理写法
+   let timeoutId = null;
+   
+   const requestTask = tt.request({
+     // 请求配置
+     success: (res) => {
+       // 清除超时定时器
+       if (timeoutId) {
+         clearTimeout(timeoutId);
+         timeoutId = null;
+       }
+       // 处理成功响应
+     },
+     fail: (err) => {
+       // 清除超时定时器（如果不是由超时引起的失败）
+       if (timeoutId && err.errMsg !== 'request:fail abort') {
+         clearTimeout(timeoutId);
+         timeoutId = null;
+       }
+       // 处理错误
+     }
+   });
+   
+   // 设置超时
+   if (timeout) {
+     timeoutId = setTimeout(() => {
+       if (requestTask && typeof requestTask.abort === 'function') {
+         requestTask.abort();
+       }
+       // 设为null，表示已处理
+       timeoutId = null;
+       // 处理超时
+     }, timeout);
+   }
+   ```
+
+2. **健壮导航模式**
+
+   抖音小程序中的导航应采用多层次策略，确保在各种情况下都能成功导航：
+
+   ```javascript
+   // 健壮的导航函数
+   const navigatePage = (url) => {
+     try {
+       // 1. 首先尝试switchTab（如果是tabBar页面）
+       tt.switchTab({
+         url: url,
+         success: (res) => {
+           console.log('导航成功', res);
+         },
+         fail: (err) => {
+           console.error('switchTab失败，尝试navigateTo', err);
+           
+           // 2. 如果switchTab失败，尝试navigateTo
+           tt.navigateTo({
+             url: url,
+             fail: (err2) => {
+               console.error('navigateTo失败，尝试redirectTo', err2);
+               
+               // 3. 如果navigateTo失败，尝试redirectTo
+               tt.redirectTo({
+                 url: url,
+                 fail: (err3) => {
+                   console.error('redirectTo失败，最终尝试reLaunch', err3);
+                   
+                   // 4. 如果redirectTo失败，使用reLaunch作为最后手段
+                   tt.reLaunch({
+                     url: url,
+                     fail: (err4) => {
+                       console.error('所有导航方法均失败', err4);
+                     }
+                   });
+                 }
+               });
+             }
+           });
+         }
+       });
+     } catch (e) {
+       console.error('导航发生异常', e);
+     }
+   };
+   ```
+
+3. **登录后导航模式**
+
+   登录成功后应立即进行页面导航，确保用户体验流畅。推荐使用以下模式：
+
+   ```javascript
+   // 登录成功后的导航处理
+   completeLogin(loginCode, profileInfo)
+     .then(res => {
+       console.log('登录成功，正在跳转到首页');
+       
+       // 使用健壮导航函数跳转到首页
+       navigatePage('/pages/index/index');
+     })
+     .catch(err => {
+       console.error('登录失败', err);
+       // 显示错误提示
+       tt.showToast({
+         title: '登录失败: ' + (err.errMsg || JSON.stringify(err)),
+         icon: 'none'
+       });
+     });
+   ```
+
+4. **参数命名一致性**
+
+   在整个应用中保持参数命名一致性，特别是API相关参数：
+   
+   ```javascript
+   // 使用profileInfo代替userInfo，保持一致性
+   getUserProfileInfo()
+     .then(profileInfo => {
+       // 使用相同的参数命名继续处理
+       return getLoginCode().then(loginCodeResult => {
+         // 传递给completeLogin时使用一致的命名
+         return completeLogin(loginCodeResult.code, profileInfo);
+       });
+     });
+   ```
+
+## 页面状态管理最佳实践
+
+1. **登录状态同步机制**
+
+   每个需要检查登录状态的页面应实现一致的状态同步机制：
+
+   ```javascript
+   // 在页面显示时检查登录状态
+   onShow: function() {
+     // 从存储中获取最新登录状态
+     const isUserLoggedIn = isLoggedIn();
+     
+     // 只有当状态发生变化时才更新页面
+     if (this.data.isLoggedIn !== isUserLoggedIn) {
+       this.setData({
+         isLoggedIn: isUserLoggedIn
+       });
+       
+       // 根据登录状态加载相应数据
+       if (isUserLoggedIn) {
+         this.loadUserData();
+       }
+     }
+   }
+   ```
+
+2. **个人中心页面状态保持**
+
+   个人中心页面应确保UI状态与实际登录状态保持一致，避免显示错误信息：
+
+   ```javascript
+   // 优化的个人中心页面模式
+   Page({
+     data: {
+       userInfo: null,
+       isLoggedIn: false,
+       loginStep: '', // 记录登录进度
+       favoriteList: [], // 收藏列表
+       historyList: [] // 历史记录
+     },
+     
+     onLoad: function() {
+       this.checkLoginStatus();
+     },
+     
+     onShow: function() {
+       // 每次显示页面时重新检查登录状态
+       this.checkLoginStatus();
+     },
+     
+     checkLoginStatus: function() {
+       const loginStatus = isLoggedIn();
+       
+       // 状态变化时更新UI
+       if (this.data.isLoggedIn !== loginStatus) {
+         this.setData({
+           isLoggedIn: loginStatus
+         });
+         
+         // 已登录时加载用户数据
+         if (loginStatus) {
+           this.loadUserProfile();
+           this.loadFavorites();
+           this.loadHistory();
+         }
+       }
+     },
+     
+     // 其他方法...
+   });
+   ```
+
+3. **退出登录状态重置**
+
+   退出登录时应重置所有相关状态和数据：
+
+   ```javascript
+   handleLogout: function() {
+     logout(); // 清除登录数据
+     
+     // 重置页面状态
+     this.setData({
+       isLoggedIn: false,
+       userInfo: null,
+       favoriteList: [],
+       historyList: []
+     });
+     
+     // 显示成功提示
+     tt.showToast({
+       title: '已退出登录',
+       icon: 'success'
+     });
+   }
+   ```
+
+4. **Loading状态管理模式**
+
+   页面加载状态必须在所有操作完成后正确重置，特别是在用户登录流程中：
+
+   ```javascript
+   // 正确的loading状态管理示例
+   Page({
+     data: {
+       loading: false,
+       isLogin: false
+     },
+     
+     handleLogin: function() {
+       // 开始操作时设置loading状态
+       this.setData({ loading: true });
+       
+       // 执行登录操作
+       loginOperation()
+         .then(result => {
+           // 操作成功时更新状态并重置loading
+           this.setData({
+             isLogin: true,
+             userData: result.userData,
+             loading: false // 重要：显式重置loading状态
+           });
+         })
+         .catch(error => {
+           // 错误处理时也必须重置loading状态
+           console.error('登录失败:', error);
+           this.setData({ loading: false });
+         });
+     }
+   });
+   ```
+
+5. **条件渲染优化**
+
+   使用明确的条件渲染来控制UI状态显示，避免使用互斥条件：
+
+   ```html
+   <!-- 推荐：使用明确的条件表达式 -->
+   <view class="login-section" tt:if="{{!isLogin}}">
+     <!-- 登录UI内容 -->
+   </view>
+
+   <view class="profile-section" tt:if="{{isLogin}}">
+     <!-- 个人资料UI内容 -->
+   </view>
+
+   <!-- 加载状态只在特定条件下显示 -->
+   <view class="loading" tt:if="{{loading && !isLogin}}">
+     <!-- 加载指示器 -->
+   </view>
+   
+   <!-- 不推荐：使用tt:else可能导致状态管理混乱 -->
+   <view class="login-section" tt:if="{{!isLogin}}">
+     <!-- 登录UI内容 -->
+   </view>
+   <view class="profile-section" tt:else>
+     <!-- 个人资料UI内容 -->
+   </view>
+   ```
+
+## 测试和验证模式
+
+1. **分步式登录测试**
+
+   使用专门的测试页面验证登录流程的每个步骤：
+
+   ```javascript
+   // login-test.js 模式
+   Page({
+     data: {
+       loginStep: '',  // 当前登录步骤
+       loginMessage: '', // 步骤状态消息
+       profileInfo: null, // 用户资料
+       loginCode: '', // 登录码
+       loginResult: null // 最终登录结果
+     },
+     
+     // 一键测试完整登录流程
+     handleLogin: function() {
+       this.setData({ 
+         loginStep: 'getUserProfile',
+         loginMessage: '正在获取用户信息...'
+       });
+       
+       // 第一步：获取用户信息（直接在点击事件中调用）
+       getUserProfileInfo()
+         .then(profileInfo => {
+           this.setData({ 
+             profileInfo,
+             loginStep: 'getLoginCode',
+             loginMessage: '已获取用户信息，正在获取登录码...'
+           });
+           
+           // 第二步：获取登录码
+           return getLoginCode().then(loginCodeResult => {
+             this.setData({ 
+               loginCode: loginCodeResult.code,
+               loginStep: 'completeLogin',
+               loginMessage: '正在完成登录流程...'
+             });
+             
+             // 第三步：完成登录
+             return completeLogin(loginCodeResult.code, profileInfo);
+           });
+         })
+         .then(loginResult => {
+           this.setData({ 
+             loginResult,
+             loginStep: 'complete',
+             loginMessage: '登录成功！'
+           });
+           
+           // 导航到首页
+           this.navigateAfterLogin();
+         })
+         .catch(err => {
+           this.setData({ 
+             loginStep: 'error',
+             loginMessage: '登录失败: ' + (err.errMsg || JSON.stringify(err))
+           });
+         });
+     },
+     
+     // 导航函数
+     navigateAfterLogin: function() {
+       // 实现多重导航保障
+     }
+   });
+   ```
+
+2. **全流程验证清单**
+
+   每次修改登录相关代码后，应验证以下关键点：
+   
+   - 点击登录按钮时抖音授权弹窗是否正常显示
+   - 用户信息是否成功获取（包括头像、昵称）
+   - 登录码是否成功获取
+   - 登录请求是否发送至正确的后端端点
+   - 登录成功后token是否正确保存
+   - 页面是否正确跳转到首页
+   - 个人中心页面是否正确显示用户信息
+   - 收藏和历史记录是否正确加载
+   - 退出登录功能是否正常工作
+   - 退出后UI是否回到未登录状态
+
+这些验证应在实际设备上完成，不仅在模拟器中测试。
+
+## API参数规范化
+
+在前端开发中，我们采用以下参数传递规范：
+
+1. **API函数参数标准化**
+
+   对于重要的API函数，如`completeLogin`，我们采用独立参数而非对象结构：
+
+   ```javascript
+   // ✓ 推荐 - 使用独立参数
+   completeLogin(code, userInfo);
+
+   // ✗ 不推荐 - 使用对象参数
+   completeLogin({code, userInfo});
+   ```
+
+   这样做有几个好处：
+   - 参数顺序和类型更明确
+   - 函数签名更加清晰
+   - 减少了创建临时对象的开销
+   - 使调用代码更简洁
+   - 保持API风格的一致性
+
+## 抖音小程序本地存储最佳实践
+
+在抖音小程序开发中，本地存储（特别是认证数据存储）是关键要素。以下是已验证的最佳实践：
+
+1. **多重备份策略**
+   
+   小程序环境中本地存储可能不稳定，必须使用多重备份策略：
+   ```javascript
+   // ✓ 正确做法：多位置备份
+   function saveToken(token) {
+     // 主位置
+     tt.setStorageSync('token', token);
+     // 对象格式备份
+     tt.setStorageSync('token_obj', {token, time: Date.now()});
+     // 备用键备份
+     tt.setStorageSync('authToken', token);
+     // 全局变量备份
+     getApp().globalData._emergencyToken = token;
+   }
+   
+   // ✗ 错误做法：单点存储
+   function saveToken(token) {
+     tt.setStorageSync('token', token); // 单点失败风险高
+   }
+   ```
+
+2. **立即验证与重试机制**
+   
+   每次保存操作都必须立即验证并在失败时使用不同策略重试：
+   ```javascript
+   // ✓ 推荐：保存后立即验证
+   tt.setStorageSync('token', token);
+   const verifyToken = tt.getStorageSync('token');
+   if (verifyToken !== token) {
+     // 尝试不同方法重新保存
+     tt.setStorage({key: 'token', data: token});
+     // 使用备用键
+     tt.setStorageSync('token_backup', token);
+   }
+   ```
+
+3. **智能恢复机制**
+   
+   Token获取应尝试多个可能的存储位置，保证最大程度恢复：
+   ```javascript
+   // ✓ 推荐：多位置尝试获取
+   function getToken() {
+     // 尝试主键
+     let token = tt.getStorageSync('token');
+     if (token) return token;
+     
+     // 尝试备用键
+     token = tt.getStorageSync('authToken');
+     if (token) {
+       // 恢复到主键
+       tt.setStorageSync('token', token);
+       return token;
+     }
+     
+     // 尝试全局变量
+     const app = getApp();
+     if (app?.globalData?._emergencyToken) {
+       // 恢复到主键
+       tt.setStorageSync('token', app.globalData._emergencyToken);
+       return app.globalData._emergencyToken;
+     }
+     
+     return null;
+   }
+   ```
+
+4. **彻底清理机制**
+   
+   登出时必须清理所有可能的存储位置：
+   ```javascript
+   // ✓ 推荐：全面清理
+   function clearAuth() {
+     const tokenKeys = ['token', 'authToken', 'token_obj', 'token_backup'];
+     tokenKeys.forEach(key => tt.removeStorageSync(key));
+     
+     // 清理全局变量
+     const app = getApp();
+     if (app?.globalData) {
+       app.globalData._emergencyToken = null;
+       app.globalData.isLoggedIn = false;
+     }
+   }
+   ```
+
+5. **详细日志记录**
+   
+   所有存储操作都应有唯一ID和详细日志，便于调试：
+   ```javascript
+   // ✓ 推荐：详细日志
+   const operationId = Math.random().toString(36).substring(2, 10);
+   console.log(`[${operationId}] 开始保存token，长度: ${token.length}`);
+   // ... 操作 ...
+   console.log(`[${operationId}] 保存完成，验证: ${成功 ? '成功' : '失败'}`);
+   ```
+
+这些最佳实践显著提高了小程序认证数据的可靠性，解决了环境不稳定可能导致的数据丢失问题。
+
+## 令牌管理规则和最佳实践
+
+在处理身份验证和API调用时，应遵循以下规则：
+
+### 令牌存储规则
+
+1. 使用简单直接的令牌存储方法，避免过度复杂的机制
+2. JWT令牌默认有效期设为30天，减少频繁刷新的需求
+3. 优先使用`tokenManager.js`中的方法进行令牌操作，不直接调用`tt.setStorageSync/getStorageSync`
+4. 调用需要认证的API前，始终检查登录状态
+
+### 错误处理指南
+
+1. 所有API调用应包含错误处理
+2. 401/403错误需特殊处理，不应直接抛出到UI层
+3. API调用失败应有合理的降级策略，确保UI可以显示默认状态
+4. 对于视频详情页等关键功能页面，使用try-catch包装API调用，防止单点失败导致整页崩溃
+
+### 代码示例
+
+**正确的令牌检查方式**:
+```javascript
+// 调用前检查登录状态
+if (!tokenManager.isLoggedIn()) {
+  // 显示登录对话框
+  showLoginDialog();
+  return;
+}
+
+// 然后再调用API
+api.protectedEndpoint({
+  success: handleSuccess,
+  fail: handleError
+});
+```
+
+**错误处理最佳实践**:
+```javascript
+try {
+  // 对敏感操作使用try-catch包装
+  const result = await api.someOperation();
+  updateUI(result);
+} catch (error) {
+  // 错误分类处理
+  if (error.statusCode === 401) {
+    handleAuthError();
+  } else {
+    // 其他错误的降级策略
+    showErrorMessage();
+    setDefaultState();
+  }
+}
+```
+
+**避免的反模式**:
+- ❌ 直接调用`tt.setStorageSync('token', token)`
+- ❌ 不检查登录状态就调用需要认证的API
+- ❌ 在遇到401错误时立即清除令牌
+- ❌ 缺少错误处理的API调用
+
