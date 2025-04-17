@@ -19,10 +19,26 @@ module.exports = ({ env }) => ({
         settings: {
           public: true,
         },
+        customFields: {
+          user: {
+            openid: {
+              type: 'string',
+            },
+            nickname: {
+              type: 'string',
+            },
+            avatarUrl: {
+              type: 'string',
+            },
+            lastLoginAt: {
+              type: 'datetime',
+            },
+          },
+        },
       },
     },
     documentation: {
-      enabled: true,
+      enabled: false,
       config: {
         openapi: '3.0.0',
         info: {

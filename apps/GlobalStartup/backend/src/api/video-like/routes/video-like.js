@@ -12,7 +12,8 @@ module.exports = {
       path: '/video-likes/toggle',
       handler: 'video-like.toggleLike',
       config: {
-        policies: ['global::is-authenticated'],
+        auth: { strategy: 'api::auth.jwt' },
+        policies: [],
         middlewares: [],
       },
     },
@@ -21,16 +22,18 @@ module.exports = {
       path: '/video-likes/user',
       handler: 'video-like.getUserLikes',
       config: {
-        policies: ['global::is-authenticated'],
+        auth: { strategy: 'api::auth.jwt' },
+        policies: [],
         middlewares: [],
       },
     },
     {
       method: 'GET',
-      path: '/video-likes/check',
+      path: '/video-likes/checkLike',
       handler: 'video-like.checkLike',
       config: {
-        policies: ['global::is-authenticated'],
+        auth: { strategy: 'api::auth.jwt' },
+        policies: [],
         middlewares: [],
       },
     },

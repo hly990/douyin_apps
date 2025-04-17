@@ -65,8 +65,35 @@
       "inversedBy": "users",
       "configurable": false
     },
-    "skill": {
-      "type": "text"
+    "nickname": {
+      "type": "string"
+    },
+    "avatarUrl": {
+      "type": "string"
+    },
+    "openid": {
+      "type": "string"
+    },
+    "lastLoginAt": {
+      "type": "datetime"
+    },
+    "userDocumentId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "collections": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::video-collection.video-collection",
+      "mappedBy": "user"
+    },
+    "likes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::video-like.video-like",
+      "mappedBy": "user"
     }
   }
 }

@@ -81,7 +81,7 @@
       "type": "relation",
       "relation": "manyToMany",
       "target": "api::user.user",
-      "inversedBy": "followers"
+      "mappedBy": "followers"
     },
     "bio": {
       "type": "text"

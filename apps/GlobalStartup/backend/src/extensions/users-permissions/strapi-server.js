@@ -60,5 +60,10 @@ module.exports = (plugin) => {
     }
   };
   
+  // 注意：刷新令牌功能已移至自定义控制器，这里不再提供
+  // 为避免路由冲突，删除了以下代码：
+  // - controller.refreshToken 方法定义
+  // - 路由定义：path: '/auth/refresh-token'
+  
   return plugin;
 }; 

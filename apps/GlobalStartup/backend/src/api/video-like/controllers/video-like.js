@@ -22,12 +22,15 @@ module.exports = createCoreController('api::video-like.video-like', ({ strapi })
       }
 
       // Check if the like record already exists
-      const existingLike = await strapi.db.query('api::video-like.video-like').findOne({
-        where: {
-          user: user.id,
-          video: videoId,
+      const existingLikes = await strapi.entityService.findMany('api::video-like.video-like', {
+        filters: {
+          user: { id: user.id },
+          video: { id: videoId }
         },
+        limit: 1
       });
+      
+      const existingLike = existingLikes && existingLikes.length > 0 ? existingLikes[0] : null;
 
       let result;
       
@@ -72,26 +75,26 @@ module.exports = createCoreController('api::video-like.video-like', ({ strapi })
       const { page = 1, pageSize = 10 } = ctx.query;
       const start = (page - 1) * pageSize;
       
-      // Find all video likes for the user
-      const likes = await strapi.db.query('api::video-like.video-like').findMany({
-        where: {
-          user: user.id,
+      // Find all video likes for the user using entityService
+      const likes = await strapi.entityService.findMany('api::video-like.video-like', {
+        filters: {
+          user: { id: user.id }
         },
         populate: {
           video: {
-            populate: ['thumbnail', 'videoFile'],
-          },
+            populate: ['thumbnail', 'videoFile']
+          }
         },
-        orderBy: { likedAt: 'desc' },
+        sort: { likedAt: 'desc' },
         limit: parseInt(pageSize),
         offset: start,
       });
       
       // Count total likes for pagination
-      const count = await strapi.db.query('api::video-like.video-like').count({
-        where: {
-          user: user.id,
-        },
+      const count = await strapi.entityService.count('api::video-like.video-like', {
+        filters: {
+          user: { id: user.id }
+        }
       });
       
       // Transform to include only necessary video data
@@ -138,23 +141,34 @@ module.exports = createCoreController('api::video-like.video-like', ({ strapi })
 
       const user = ctx.state.user;
       if (!user) {
+        strapi.log.error(`视频点赞检查: 未授权访问 videoId=${videoId}, IP=${ctx.request.ip}`);
         return ctx.unauthorized('You must be logged in');
       }
 
-      const like = await strapi.db.query('api::video-like.video-like').findOne({
-        where: {
-          user: user.id,
-          video: videoId,
+      strapi.log.info(`[视频点赞检查] 用户ID: ${user.id}, 视频ID: ${videoId}`);
+      
+      // 使用Strapi v5兼容的方法
+      const entries = await strapi.entityService.findMany('api::video-like.video-like', {
+        filters: { 
+          user: { id: user.id },
+          video: { id: videoId }
         },
+        limit: 1
       });
-
+      
+      strapi.log.debug(`[视频点赞检查] 查询结果: ${JSON.stringify(entries)}`);
+      
+      const like = entries && entries.length > 0 ? entries[0] : null;
+      
+      strapi.log.info(`[视频点赞检查] 用户${user.id}${like ? '已' : '未'}点赞视频${videoId}`);
+      
       return ctx.send({
         liked: !!like,
-        likeId: like ? like.id : null,
+        likeId: like ? like.id : null
       });
     } catch (error) {
-      strapi.log.error('Error checking like:', error);
-      return ctx.badRequest('Failed to check like status');
+      strapi.log.error(`[视频点赞检查] 错误: ${error.message}`, error);
+      return ctx.badRequest(`Failed to check like status: ${error.message}`);
     }
   },
 })); 

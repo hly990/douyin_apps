@@ -513,44 +513,11 @@ export interface ApiVideoCollectionVideoCollection
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    user: Schema.Attribute.Relation<'manyToOne', 'api::user.user'>;
+    user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     video: Schema.Attribute.Relation<'manyToOne', 'api::video.video'>;
-  };
-}
-
-export interface ApiVideoHistoryVideoHistory
-  extends Struct.CollectionTypeSchema {
-  collectionName: 'video_histories';
-  info: {
-    description: '\u5B58\u50A8\u7528\u6237\u89C2\u770B\u89C6\u9891\u7684\u5386\u53F2\u8BB0\u5F55';
-    displayName: '\u89C6\u9891\u89C2\u770B\u5386\u53F2';
-    pluralName: 'video-histories';
-    singularName: 'video-history';
-  };
-  options: {
-    comment: '\u8BB0\u5F55\u7528\u6237\u89C2\u770B\u89C6\u9891\u7684\u5386\u53F2\u8BB0\u5F55';
-    draftAndPublish: false;
-  };
-  attributes: {
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::video-history.video-history'
-    > &
-      Schema.Attribute.Private;
-    progress: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
-    publishedAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    user: Schema.Attribute.Relation<'manyToOne', 'api::user.user'>;
-    video: Schema.Attribute.Relation<'manyToOne', 'api::video.video'>;
-    watchTime: Schema.Attribute.DateTime &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'now'>;
   };
 }
 
@@ -581,7 +548,10 @@ export interface ApiVideoLikeVideoLike extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    user: Schema.Attribute.Relation<'manyToOne', 'api::user.user'>;
+    user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     video: Schema.Attribute.Relation<'manyToOne', 'api::video.video'>;
   };
 }
@@ -1076,7 +1046,12 @@ export interface PluginUsersPermissionsUser
     draftAndPublish: false;
   };
   attributes: {
+    avatarUrl: Schema.Attribute.String;
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    collections: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::video-collection.video-collection'
+    >;
     confirmationToken: Schema.Attribute.String & Schema.Attribute.Private;
     confirmed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
@@ -1087,12 +1062,16 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    lastLoginAt: Schema.Attribute.DateTime;
+    likes: Schema.Attribute.Relation<'oneToMany', 'api::video-like.video-like'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    nickname: Schema.Attribute.String;
+    openid: Schema.Attribute.String;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
@@ -1105,10 +1084,11 @@ export interface PluginUsersPermissionsUser
       'manyToOne',
       'plugin::users-permissions.role'
     >;
-    skill: Schema.Attribute.Text;
+    status: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    userDocumentId: Schema.Attribute.String;
     username: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique &
@@ -1132,7 +1112,6 @@ declare module '@strapi/strapi' {
       'api::auth.auth': ApiAuthAuth;
       'api::user.user': ApiUserUser;
       'api::video-collection.video-collection': ApiVideoCollectionVideoCollection;
-      'api::video-history.video-history': ApiVideoHistoryVideoHistory;
       'api::video-like.video-like': ApiVideoLikeVideoLike;
       'api::video.video': ApiVideoVideo;
       'plugin::content-releases.release': PluginContentReleasesRelease;

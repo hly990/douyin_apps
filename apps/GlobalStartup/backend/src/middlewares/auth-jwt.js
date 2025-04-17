@@ -1,129 +1,184 @@
 'use strict';
 
 /**
- * 自定义JWT认证中间件
- * 此中间件会在每个请求中验证JWT令牌
+ * 全局JWT认证中间件
+ * 使用Strapi默认用户表进行验证
+ * 与Strapi权限系统完美集成
  */
 
-const jwt = require('jsonwebtoken');
-
 module.exports = (config, { strapi }) => {
-  // 添加启动日志，确认中间件被加载
-  console.log('=== 自定义JWT认证中间件已加载 ===');
+  strapi.log.info('=== 全局JWT认证中间件已加载 (使用Strapi标准用户表) ===');
   
   return async (ctx, next) => {
-    console.log(`\n处理请求: ${ctx.method} ${ctx.path}`);
-    console.log(`请求头: ${JSON.stringify(ctx.request.header)}`);
-    
-    // 跳过不需要认证的路由
-    const ignoreRoutes = [
-      // 健康检查
-      '/_health',
-      // 认证相关路由
-      '/api/auth/tt-login',
-      '/api/auth/local',
-      '/api/auth/local/register',
-      // 公开API，可根据需要添加
-      '/api/videos',
-      '/api/videos/',
-    ];
-    
-    // 检查当前路径是否在忽略列表中
-    const shouldSkip = ignoreRoutes.some(route => {
-      if (route.endsWith('/') && !ctx.path.endsWith('/')) {
-        return ctx.path === route.slice(0, -1);
-      }
-      return ctx.path.startsWith(route);
-    });
-    
-    // 如果是忽略的路由，直接继续
-    if (shouldSkip) {
-      console.log(`[Auth-JWT] 跳过认证: ${ctx.path}`);
-      return await next();
-    }
-    
-    // 如果用户已认证，直接继续
-    if (ctx.state.user) {
-      console.log(`[Auth-JWT] 用户已通过认证: ID=${ctx.state.user.id}`);
-      return await next();
-    }
-    
-    // 读取授权头
-    const authHeader = ctx.request.header.authorization;
-    console.log(`[Auth-JWT] 授权头: ${authHeader ? authHeader.substring(0, 20) + '...' : '未设置'}`);
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log(`[Auth-JWT] 授权头缺失或格式不正确: ${ctx.path}`);
-      return handleUnauthorized(ctx);
-    }
-    
-    // 提取令牌
-    const token = authHeader.substring(7);
-    if (!token) {
-      console.log(`[Auth-JWT] 令牌为空: ${ctx.path}`);
-      return handleUnauthorized(ctx);
-    }
+    // 标记next是否已被调用
+    let nextCalled = false;
     
     try {
-      // 获取JWT密钥
-      let jwtSecret = strapi.config.get('plugin.users-permissions.jwtSecret');
-      
-      console.log(`[Auth-JWT] 使用JWT密钥: ${jwtSecret ? jwtSecret.substring(0, 3) + '...' : '未找到'}`);
-      
-      // 如果找不到密钥，尝试直接从环境变量获取
-      if (!jwtSecret) {
-        jwtSecret = process.env.JWT_SECRET;
-        console.log(`[Auth-JWT] 从环境变量获取密钥: ${jwtSecret ? '成功' : '失败'}`);
+      // 跳过管理员路由，防止干扰Strapi管理面板
+      if (ctx.url.startsWith('/admin')) {
+        strapi.log.debug(`JWT中间件: 跳过管理员路由 [${ctx.method} ${ctx.url}]`);
+        return await next();
       }
       
-      if (!jwtSecret) {
-        console.error('[Auth-JWT] JWT密钥未配置');
-        return handleUnauthorized(ctx);
+      // 跳过不需要验证的路由 (可选)
+      if (ctx.url.startsWith('/_health') || ctx.url === '/') {
+        strapi.log.debug(`JWT中间件: 跳过系统路由 [${ctx.method} ${ctx.url}]`);
+        return await next();
       }
       
-      // 验证令牌
-      console.log(`[Auth-JWT] 验证令牌: ${token.substring(0, 20)}...`);
-      
-      const decoded = jwt.verify(token, jwtSecret);
-      console.log(`[Auth-JWT] JWT验证成功: ${ctx.path}, 用户ID=${decoded.id}`);
-      
-      // 查找用户
-      console.log(`[Auth-JWT] 查询用户信息: ID=${decoded.id}`);
-      const user = await strapi.db.query('api::user.user').findOne({
-        where: { id: decoded.id }
-      });
-      
-      if (!user) {
-        console.error(`[Auth-JWT] 用户不存在: ID=${decoded.id}`);
-        return handleUnauthorized(ctx);
+      // 如果已经有认证用户，直接继续
+      if (ctx.state.user) {
+        strapi.log.debug(`JWT中间件: 用户已认证, ID=${ctx.state.user.id}`);
+        return await next();
       }
-      
-      console.log(`[Auth-JWT] 用户验证成功: ${user.id}`);
-      
-      // 设置用户到ctx.state
-      ctx.state.user = user;
-      ctx.state.isAuthenticated = true;
-      
-      // 继续处理请求
-      await next();
-    } catch (error) {
-      console.error(`[Auth-JWT] JWT验证失败: ${error.message}`);
-      return handleUnauthorized(ctx);
-    }
-  };
-};
 
-// 处理未授权请求
-function handleUnauthorized(ctx) {
-  console.log('[Auth-JWT] 返回401未授权响应');
-  ctx.status = 401;
-  ctx.body = {
-    data: null,
-    error: {
-      status: 401,
-      name: 'UnauthorizedError',
-      message: 'Invalid credentials',
-      details: {}
+      const authorization = ctx.request.header.authorization;
+      if (!authorization) {
+        strapi.log.debug(`JWT中间件: 请求头中无authorization, 跳过验证 [${ctx.method} ${ctx.url}]`);
+        return await next();
+      }
+
+      // 提取token
+      const token = authorization.replace('Bearer ', '');
+      if (!token || token === 'null') {
+        strapi.log.debug(`JWT中间件: 提取token失败或token为null，跳过验证`);
+        return await next();
+      }
+
+      strapi.log.debug(`JWT中间件: 开始验证token [长度=${token.length}] [${ctx.method} ${ctx.url}]`);
+
+      // 安全检查
+      if (!strapi.plugins || 
+          !strapi.plugins['users-permissions'] || 
+          !strapi.plugins['users-permissions'].services || 
+          !strapi.plugins['users-permissions'].services.jwt) {
+        strapi.log.error('JWT中间件: JWT服务不可用');
+        return await next();
+      }
+          
+      try {
+        // 使用JWT服务验证令牌
+        const jwtService = strapi.plugins['users-permissions'].services.jwt;
+        const payload = await jwtService.verify(token);
+        
+        strapi.log.debug(`JWT中间件: token验证成功，payload=${JSON.stringify(payload)}`);
+        
+        if (payload && payload.id && strapi.db && strapi.db.query) {
+          // 使用Strapi标准用户表查找用户 (plugin::users-permissions.user)
+          try {
+            strapi.log.debug(`JWT中间件: 在plugin::users-permissions.user表中查找用户 ID=${payload.id}`);
+            
+            // 使用更安全的查询方式
+            let pluginUser = null;
+            
+            try {
+              // 首先尝试使用entityService，它可能有更好的缓存
+              const users = await strapi.entityService.findMany('plugin::users-permissions.user', {
+                filters: { id: payload.id },
+                populate: ['role'],
+                limit: 1
+              });
+              
+              if (users && users.length > 0) {
+                pluginUser = users[0];
+                strapi.log.debug(`JWT中间件: 通过entityService找到用户ID=${pluginUser.id}`);
+              }
+            } catch (entityError) {
+              strapi.log.warn(`JWT中间件: entityService查询失败, 尝试直接查询: ${entityError.message}`);
+            }
+            
+            // 如果entityService未找到用户，尝试直接查询
+            if (!pluginUser) {
+              try {
+                pluginUser = await strapi.db.query('plugin::users-permissions.user').findOne({
+                  where: { id: payload.id },
+                  populate: ['role']
+                });
+                
+                if (pluginUser) {
+                  strapi.log.debug(`JWT中间件: 通过直接查询找到用户ID=${pluginUser.id}`);
+                }
+              } catch (directQueryError) {
+                strapi.log.error(`JWT中间件: 直接查询失败: ${directQueryError.message}`);
+              }
+            }
+            
+            if (pluginUser) {
+              strapi.log.debug(`JWT中间件: 找到用户ID=${pluginUser.id}, username=${pluginUser.username}, role=${pluginUser.role?.name || '未知'}`);
+              ctx.state.user = pluginUser; // 设置用户到上下文
+              ctx.state.isAuthenticated = true; // 标记为已认证
+              
+              // 设置用户角色，确保权限系统正常工作
+              if (pluginUser.role) {
+                ctx.state.userRole = pluginUser.role.name; // 设置用户角色名称
+                strapi.log.debug(`JWT中间件: 设置用户角色 ${pluginUser.role.name}`);
+              }
+            } else {
+              strapi.log.warn(`JWT中间件: 在plugin::users-permissions.user表中没有找到ID=${payload.id}的用户`);
+              
+              // 对于需要用户认证的端点返回401响应
+              if (ctx.url.startsWith('/api/') && ctx.path.includes('/user')) {
+                strapi.log.debug(`JWT中间件: 返回401响应 (用户端点${ctx.path})`);
+                ctx.status = 401;
+                ctx.body = {
+                  statusCode: 401,
+                  error: "未授权",
+                  message: "用户不存在或已被删除，请重新登录"
+                };
+                return; // 不调用next，直接返回
+              }
+            }
+          } catch (userError) {
+            strapi.log.error(`JWT中间件: 查询plugin::users-permissions.user表失败: ${userError.message}`, userError);
+            // 对于需要用户认证的端点返回500响应
+            if (ctx.url.startsWith('/api/') && ctx.path.includes('/user')) {
+              strapi.log.debug(`JWT中间件: 返回500响应 (用户端点${ctx.path})`);
+              ctx.status = 500;
+              ctx.body = {
+                statusCode: 500,
+                error: "服务器错误",
+                message: "用户验证过程中发生错误"
+              };
+              return; // 不调用next，直接返回
+            }
+          }
+        }
+      } catch (error) {
+        strapi.log.error(`JWT中间件: JWT验证失败: ${error.message}, token长度: ${token.length}`);
+        // 只对需要用户认证的API路由触发401响应
+        if (ctx.url.startsWith('/api/') && ctx.path.includes('/user')) {
+          strapi.log.debug(`JWT中间件: 返回401响应，JWT验证失败 (用户端点${ctx.path})`);
+          ctx.status = 401;
+          ctx.body = {
+            statusCode: 401,
+            error: "未授权",
+            message: "JWT验证失败，请重新登录"
+          };
+          return; // 不调用next，直接返回
+        }
+      }
+
+      // 执行下一个中间件
+      nextCalled = true;
+      return await next();
+    } catch (error) {
+      strapi.log.error(`JWT中间件: 认证中间件错误: ${error.message}`, error);
+      // 对需要用户认证的API路由，出现意外错误时返回500
+      if (!nextCalled && ctx.url.startsWith('/api/') && ctx.path.includes('/user')) {
+        strapi.log.debug(`JWT中间件: 返回500响应，中间件错误 (用户端点${ctx.path})`);
+        ctx.status = 500;
+        ctx.body = {
+          statusCode: 500,
+          error: "服务器错误",
+          message: "认证过程发生错误"
+        };
+        return; // 不继续执行
+      }
+      
+      // 如果next还没被调用，则调用它
+      if (!nextCalled) {
+        return await next();
+      }
     }
   };
-} 
+}; 

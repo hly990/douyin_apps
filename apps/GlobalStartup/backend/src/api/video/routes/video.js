@@ -10,17 +10,29 @@ module.exports = {
     {
       method: 'GET',
       path: '/videos',
-      handler: 'api::video.video.find',
+      handler: 'video.find',
       config: {
         auth: false,
         policies: [],
         middlewares: [],
       },
     },
+    // 推荐视频 - 公开访问 (注意：特定路由必须放在参数路由之前)
+    {
+      method: 'GET',
+      path: '/videos/recommended',
+      handler: 'video.getRecommended',
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
+    // 视频详情 - 公开访问
     {
       method: 'GET',
       path: '/videos/:id',
-      handler: 'api::video.video.findOne',
+      handler: 'video.findOne',
       config: {
         auth: false,
         policies: [],
@@ -30,8 +42,9 @@ module.exports = {
     {
       method: 'POST',
       path: '/videos',
-      handler: 'api::video.video.create',
+      handler: 'video.create',
       config: {
+        auth: false, // 允许公开创建，或者设为受限
         policies: [],
         middlewares: [],
       },
@@ -39,8 +52,9 @@ module.exports = {
     {
       method: 'PUT',
       path: '/videos/:id',
-      handler: 'api::video.video.update',
+      handler: 'video.update',
       config: {
+        auth: false, // 允许公开更新，或者设为受限
         policies: [],
         middlewares: [],
       },
@@ -48,8 +62,9 @@ module.exports = {
     {
       method: 'DELETE',
       path: '/videos/:id',
-      handler: 'api::video.video.delete',
+      handler: 'video.delete',
       config: {
+        auth: false, // 允许公开删除，或者设为受限
         policies: [],
         middlewares: [],
       },
@@ -58,7 +73,7 @@ module.exports = {
     {
       method: 'POST',
       path: '/videos/:id/play',
-      handler: 'api::video.video.updatePlayCount',
+      handler: 'video.updatePlayCount',
       config: {
         auth: false,
         policies: [],
@@ -69,19 +84,21 @@ module.exports = {
     {
       method: 'POST',
       path: '/videos/:id/like',
-      handler: 'api::video.video.likeVideo',
+      handler: 'video.likeVideo',
       config: {
-        policies: ['global::is-authenticated'],
+        auth: { name: 'global::auth-jwt' },
+        policies: [],
         middlewares: [],
       },
     },
-    // 收藏路由 - 需要登录
+    // 取消点赞路由 - 需要登录
     {
-      method: 'POST',
-      path: '/videos/:id/collect',
-      handler: 'api::video.video.collectVideo',
+      method: 'DELETE',
+      path: '/videos/:id/like',
+      handler: 'video.unlikeVideo',
       config: {
-        policies: ['global::is-authenticated'],
+        auth: { name: 'global::auth-jwt' },
+        policies: [],
         middlewares: [],
       },
     },

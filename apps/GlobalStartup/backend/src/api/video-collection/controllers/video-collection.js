@@ -69,12 +69,15 @@ module.exports = createCoreController('api::video-collection.video-collection', 
 
       // 检查是否已收藏
       console.log(`检查用户 ${userId} 是否已收藏视频 ${videoId}`);
-      const existingCollection = await strapi.db.query('api::video-collection.video-collection').findOne({
-        where: {
-          user: userId,
-          video: videoId,
+      const existingCollections = await strapi.entityService.findMany('api::video-collection.video-collection', {
+        filters: {
+          user: { id: userId },
+          video: { id: videoId }
         },
+        limit: 1
       });
+      
+      const existingCollection = existingCollections && existingCollections.length > 0 ? existingCollections[0] : null;
 
       let result;
       
@@ -112,147 +115,133 @@ module.exports = createCoreController('api::video-collection.video-collection', 
   },
 
   async getUserCollections(ctx) {
-    try {
-      console.log('获取用户收藏请求', new Date().toISOString());
-      console.log('请求URL:', ctx.url);
-      console.log('请求查询参数:', JSON.stringify(ctx.query));
-      console.log('授权头:', ctx.request.header.authorization || '无');
-      
-      let userId = null;
-      
-      // 1. 先从请求上下文中尝试获取已认证用户
-      if (ctx.state.user) {
-        userId = ctx.state.user.id;
-        console.log('从已认证会话获取用户ID:', userId);
-      } 
-      // 2. 如果上下文中没有用户，尝试手动验证JWT令牌
-      else if (ctx.request.header.authorization) {
-        try {
-          const token = ctx.request.header.authorization.replace('Bearer ', '');
-          console.log('JWT令牌:', token);
-          
-          // 排除模拟令牌
-          if (token.startsWith('mock_')) {
-            console.log('检测到模拟令牌，无法验证');
-            // 从令牌解析用户ID (mock_tt_token_1001 -> 1001)
-            try {
-              const parts = token.split('_');
-              if (parts.length >= 3) {
-                const potentialId = parts[3] || parts[parts.length-1];
-                if (!isNaN(potentialId)) {
-                  userId = parseInt(potentialId);
-                }
-              }
-            } catch (e) {
-              console.error('无法从模拟令牌解析用户ID:', e.message);
-            }
-          } 
-          // 处理标准JWT令牌
-          else {
-            try {
-              // 使用strapi的jwt服务验证令牌
-              const jwtService = strapi.plugins['users-permissions'].services.jwt;
-              const payload = await jwtService.verify(token);
-              userId = payload.id;
-              console.log('JWT令牌验证成功，用户ID:', userId);
-            } catch (verifyError) {
-              console.error('JWT令牌验证失败:', verifyError.message);
-              // 尝试手动解析
-              try {
-                const parts = token.split('.');
-                if (parts.length === 3) {
-                  const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-                  userId = payload.id;
-                  console.log('JWT令牌手动解析成功，用户ID:', userId);
-                }
-              } catch (error) {
-                console.error('JWT令牌手动解析错误:', error.message);
-              }
-            }
+    console.log(`[getUserCollections] Request URL: ${ctx.request.url}`);
+    console.log(`[getUserCollections] Query params: ${JSON.stringify(ctx.request.query)}`);
+    console.log(`[getUserCollections] Auth headers: ${JSON.stringify(ctx.request.header.authorization || 'No auth header')}`);
+    
+    // 检查用户认证状态
+    console.log(`[getUserCollections] ctx.state: ${JSON.stringify(Object.keys(ctx.state) || 'Empty state')}`);
+    console.log(`[getUserCollections] ctx.state.user: ${JSON.stringify(ctx.state.user || 'Not authenticated')}`);
+    
+    // 检查JWT令牌
+    if (ctx.request.header.authorization) {
+      try {
+        const token = ctx.request.header.authorization.replace('Bearer ', '');
+        console.log(`[getUserCollections] Token length: ${token.length}`);
+        // 解析JWT令牌结构
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+          console.log(`[getUserCollections] Token payload: ${JSON.stringify(payload)}`);
+          console.log(`[getUserCollections] Token exp: ${new Date(payload.exp * 1000).toISOString()}`);
+          if (payload.id) {
+            console.log(`[getUserCollections] Token user id: ${payload.id}`);
           }
-        } catch (error) {
-          console.error('JWT令牌处理错误:', error.message);
         }
+      } catch (error) {
+        console.error('[getUserCollections] Token parse error:', error.message);
       }
+    }
+    
+    if (!ctx.state.user) {
+      console.warn('[getUserCollections] 用户未认证，返回401');
+      return ctx.unauthorized('You are not authorized to access this resource');
+    }
+    
+    const userId = ctx.state.user.id;
+    console.log(`[getUserCollections] User authenticated successfully! userId=${userId}`);
+    
+    try {
+      // Get query parameters
+      const { page = 1, pageSize = 10 } = ctx.query;
+      console.log(`Query params: page=${page}, pageSize=${pageSize}`);
       
-      console.log('最终确定用户ID:', userId || '未找到');
-      
-      // 如果没有用户ID，返回空列表
-      if (!userId) {
-        console.log('无法识别用户，返回空数据');
+      try {
+        // 获取带视频的收藏数据
+        const [collections, count] = await Promise.all([
+          strapi.db.query('api::video-collection.video-collection').findMany({
+            where: {
+              user: { id: userId }
+            },
+            populate: {
+              video: true
+            },
+            orderBy: { createdAt: 'desc' },
+            limit: parseInt(pageSize),
+            offset: (parseInt(page) - 1) * parseInt(pageSize),
+          }),
+          strapi.db.query('api::video-collection.video-collection').count({
+            where: {
+              user: { id: userId }
+            }
+          })
+        ]);
+        
+        console.log(`Found ${count} collections for user ${userId}`);
+        
+        // 过滤并简化数据
+        const validCollections = collections
+          .filter(collection => {
+            const hasVideo = collection.video && collection.video.id;
+            if (!hasVideo) {
+              console.log(`Warning: Collection ${collection.id} has no associated video`);
+            }
+            return hasVideo;
+          })
+          .map(collection => {
+            const videoData = {
+              id: collection.video.id,
+              title: collection.video.title || 'Unknown video',
+              des: collection.video.des || '',
+              url: collection.video.url || '',
+              playCount: collection.video.playCount || 0,
+              createAt: collection.video.createAt || collection.createdAt,
+              thumbnail: collection.video.thumbnail || collection.video.coverUrl || 'https://via.placeholder.com/600x800/333333/FFFFFF?text=视频',
+              coverUrl: collection.video.coverUrl || collection.video.thumbnail || 'https://via.placeholder.com/600x800/333333/FFFFFF?text=视频'
+            };
+            
+            // 添加日志分析视频URL
+            console.log(`[VideoCollection] 视频ID: ${videoData.id}, URL: ${videoData.url}`);
+            
+            // 检查URL是否有效
+            if (!videoData.url || !videoData.url.startsWith('http')) {
+              console.warn(`[VideoCollection] 警告: 视频ID ${videoData.id} 的URL无效或为空`);
+            }
+            
+            return {
+              id: collection.id,
+              video: videoData,
+              createdAt: collection.createdAt
+            };
+          });
+          
+        // 打印最终返回结果的第一条数据作为示例
+        if (validCollections.length > 0) {
+          console.log(`[VideoCollection] 返回的第一条数据示例: ${JSON.stringify(validCollections[0])}`);
+        }
+        
+        // 计算分页信息
+        const pageCount = Math.ceil(count / parseInt(pageSize));
+        
         return ctx.send({
-          data: [],
+          data: validCollections,
           meta: {
             pagination: {
-              page: 1,
-              pageSize: 10,
-              pageCount: 0,
-              total: 0,
+              page: parseInt(page),
+              pageCount,
+              pageSize: parseInt(pageSize),
+              total: count
             }
           }
         });
+        
+      } catch (error) {
+        console.error('[getUserCollections] Database query error:', error);
+        return ctx.badRequest('Failed to fetch collections');
       }
-
-      const { page = 1, pageSize = 10 } = ctx.query;
-      const start = (page - 1) * pageSize;
-      
-      console.log(`查询收藏: 用户ID=${userId}, 页码=${page}, 每页数量=${pageSize}`);
-      
-      // Find all video collections for the user
-      const collections = await strapi.db.query('api::video-collection.video-collection').findMany({
-        where: {
-          user: userId,
-        },
-        populate: {
-          video: {
-            populate: ['thumbnail', 'videoFile'],
-          },
-        },
-        orderBy: { collectedAt: 'desc' },
-        limit: parseInt(pageSize),
-        offset: start,
-      });
-      
-      // Count total collections for pagination
-      const count = await strapi.db.query('api::video-collection.video-collection').count({
-        where: {
-          user: userId,
-        },
-      });
-      
-      console.log(`找到收藏数量: ${collections.length}, 总数: ${count}`);
-      
-      // Transform to include only necessary video data
-      const transformedCollections = collections.map(collection => {
-        const video = collection.video || {};
-        return {
-          id: collection.id,
-          collectedAt: collection.collectedAt,
-          video: {
-            id: video.id,
-            title: video.title,
-            description: video.description,
-            thumbnail: video.thumbnail?.url || null,
-            url: video.videoFile?.url || null,
-            createdAt: video.createdAt,
-          }
-        };
-      });
-      
-      return ctx.send({
-        data: transformedCollections,
-        meta: {
-          pagination: {
-            page: parseInt(page),
-            pageSize: parseInt(pageSize),
-            pageCount: Math.ceil(count / pageSize),
-            total: count,
-          }
-        }
-      });
     } catch (error) {
-      strapi.log.error('Error getting user collections:', error);
-      return ctx.badRequest('Failed to get user collections');
+      console.error('[getUserCollections] Error:', error);
+      return ctx.badRequest('Failed to process your request');
     }
   },
 
@@ -264,73 +253,38 @@ module.exports = createCoreController('api::video-collection.video-collection', 
         return ctx.badRequest('Video ID is required');
       }
 
-      // 获取用户ID (优先从会话，其次尝试JWT令牌)
-      let userId = null;
-      
-      // 从上下文中获取用户
-      if (ctx.state.user) {
-        userId = ctx.state.user.id;
-        console.log('从认证会话获取用户ID:', userId);
-      } 
-      // 从授权头获取
-      else if (ctx.request.header.authorization) {
-        try {
-          const token = ctx.request.header.authorization.replace('Bearer ', '');
-          if (!token.startsWith('mock_')) {
-            // 使用JWT服务验证
-            try {
-              const jwtService = strapi.plugins['users-permissions'].services.jwt;
-              const payload = await jwtService.verify(token);
-              userId = payload.id;
-              console.log('JWT验证成功，用户ID:', userId);
-            } catch (e) {
-              console.error('JWT验证失败，尝试手动解析');
-              // 尝试手动解析
-              try {
-                const parts = token.split('.');
-                if (parts.length === 3) {
-                  const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-                  userId = payload.id;
-                }
-              } catch (err) {
-                console.error('JWT手动解析失败:', err.message);
-              }
-            }
-          } else {
-            console.log('检测到模拟令牌，尝试提取用户ID');
-            // 处理模拟令牌
-            const parts = token.split('_');
-            if (parts.length >= 3) {
-              const potentialId = parts[3] || parts[parts.length-1];
-              if (!isNaN(potentialId)) {
-                userId = parseInt(potentialId);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('令牌处理错误:', error.message);
-        }
-      }
-
-      if (!userId) {
+      // 获取认证用户
+      const user = ctx.state.user;
+      if (!user) {
+        strapi.log.error(`视频收藏检查: 未授权访问 videoId=${videoId}, IP=${ctx.request.ip}`);
         return ctx.unauthorized('You must be logged in');
       }
 
-      console.log(`检查用户 ${userId} 是否已收藏视频 ${videoId}`);
-      const collection = await strapi.db.query('api::video-collection.video-collection').findOne({
-        where: {
-          user: userId,
-          video: videoId,
+      const userId = user.id;
+      strapi.log.info(`[视频收藏检查] 用户ID: ${userId}, 视频ID: ${videoId}`);
+      
+      // 使用Strapi v5兼容的方法
+      const entries = await strapi.entityService.findMany('api::video-collection.video-collection', {
+        filters: { 
+          user: { id: userId },
+          video: { id: videoId }
         },
+        limit: 1
       });
-
+      
+      strapi.log.debug(`[视频收藏检查] 查询结果: ${JSON.stringify(entries)}`);
+      
+      const collection = entries && entries.length > 0 ? entries[0] : null;
+      
+      strapi.log.info(`[视频收藏检查] 用户${userId}${collection ? '已' : '未'}收藏视频${videoId}`);
+      
       return ctx.send({
         collected: !!collection,
-        collectionId: collection ? collection.id : null,
+        collectionId: collection ? collection.id : null
       });
     } catch (error) {
-      strapi.log.error('Error checking collection:', error);
-      return ctx.badRequest('Failed to check collection status');
+      strapi.log.error(`[视频收藏检查] 错误: ${error.message}`, error);
+      return ctx.badRequest(`Failed to check collection status: ${error.message}`);
     }
   },
 
@@ -375,244 +329,70 @@ module.exports = createCoreController('api::video-collection.video-collection', 
     };
   },
 
-  // 直接获取用户收藏视频 - 不通过Strapi默认认证
-  async getUserCollectionsDirect(ctx) {
+  async checkUserExists(ctx) {
     try {
-      // 记录请求URL和查询参数
-      console.log('收藏查询请求URL:', ctx.request.url);
-      console.log('收藏查询参数:', ctx.query);
-
-      // 从请求中获取用户ID
-      let userId = null;
-      const jwtDebugInfo = {
-        tokenReceived: false,
-        tokenDecoded: false,
-        userFound: false,
-        decodedData: {},
-        userModel: 'api::user.user', // 默认模型
-        error: null
-      };
-
-      // 检查是否有授权头
-      const authorization = ctx.request.header.authorization;
-      console.log('授权头:', authorization ? `${authorization.substring(0, 15)}...` : '无');
-      jwtDebugInfo.tokenReceived = !!authorization;
-
-      if (authorization) {
-        try {
-          // 静态用户缓存 - 提高查询效率，避免重复查询
-          const userCache = global.userCache || {};
-          global.userCache = userCache;
-          
-          // 从授权头中提取令牌
-          const token = authorization.replace('Bearer ', '');
-          
-          // 先检查缓存中是否有此令牌对应的用户
-          if (userCache[token]) {
-            console.log('从缓存中获取到用户ID:', userCache[token]);
-            userId = userCache[token];
-            jwtDebugInfo.userCached = true;
-          } else {
-            // 尝试验证JWT令牌
-            try {
-              const decodedToken = await strapi.plugins['users-permissions'].services.jwt.verify(token);
-              console.log('JWT解码结果:', decodedToken);
-              jwtDebugInfo.tokenDecoded = true;
-              jwtDebugInfo.decodedData = decodedToken;
-              
-              if (decodedToken && decodedToken.id) {
-                userId = decodedToken.id;
-                jwtDebugInfo.methodUsed = 'standard-jwt';
-                
-                // 存入缓存
-                userCache[token] = userId;
-              } else {
-                console.log('JWT验证成功但未找到用户ID:', decodedToken);
-                jwtDebugInfo.error = 'JWT验证成功但payload中未找到id字段';
-              }
-            } catch (jwtError) {
-              console.error('JWT验证失败，尝试备用解析方法', jwtError.message);
-              jwtDebugInfo.error = `JWT验证失败: ${jwtError.message}`;
-              jwtDebugInfo.tryBackupMethod = true;
-              
-              try {
-                // 手动解析JWT令牌
-                const jwt = require('jsonwebtoken');
-                const jwtSecret = strapi.config.get('plugin.users-permissions.jwtSecret');
-                
-                try {
-                  const manualDecoded = jwt.verify(token, jwtSecret);
-                  console.log('手动JWT解码结果:', manualDecoded);
-                  jwtDebugInfo.manualTokenDecoded = true;
-                  jwtDebugInfo.manualDecodedData = manualDecoded;
-                  
-                  if (manualDecoded && manualDecoded.id) {
-                    userId = manualDecoded.id;
-                    jwtDebugInfo.methodUsed = 'manual-jwt';
-                    
-                    // 存入缓存
-                    userCache[token] = userId;
-                  }
-                } catch (manualError) {
-                  console.error('手动解析JWT失败', manualError.message);
-                  jwtDebugInfo.manualError = manualError.message;
-                }
-              } catch (backupError) {
-                console.error('备用JWT解析方法失败', backupError.message);
-                jwtDebugInfo.backupError = backupError.message;
-              }
-            }
-          }
-          
-          // 如果已获取用户ID，查询确认用户存在
-          if (userId) {
-            try {
-              // 尝试通过服务层查询用户 - 提供更强的缓存能力
-              const userRecord = await strapi.entityService.findMany('plugin::users-permissions.user', {
-                filters: { id: userId },
-                limit: 1
-              });
-              
-              if (userRecord && userRecord.length > 0) {
-                jwtDebugInfo.userFound = true;
-                jwtDebugInfo.userFoundMethod = 'entityService';
-                console.log('用户通过entityService在数据库中存在');
-              } else {
-                // 尝试通过不同模型查询
-                console.log('entityService查询失败，尝试直接查询');
-                
-                // 尝试从api::user.user模型查询
-                const userExists = await strapi.db.query('api::user.user').findOne({
-                  where: { id: userId },
-                });
-                
-                if (userExists) {
-                  jwtDebugInfo.userFound = true;
-                  jwtDebugInfo.userFoundMethod = 'direct-query-api-user';
-                  console.log('用户通过直接查询api::user.user存在');
-                } else {
-                  // 尝试从plugin::users-permissions.user模型查询
-                  const pluginUserExists = await strapi.db.query('plugin::users-permissions.user').findOne({
-                    where: { id: userId },
-                  });
-                  
-                  if (pluginUserExists) {
-                    jwtDebugInfo.userFound = true;
-                    jwtDebugInfo.userFoundMethod = 'plugin-users-query';
-                    jwtDebugInfo.userModel = 'plugin::users-permissions.user';
-                    console.log('用户通过plugin::users-permissions.user存在');
-                  } else {
-                    jwtDebugInfo.userFound = false;
-                    jwtDebugInfo.error = `JWT中的用户ID在数据库中不存在: ${userId}`;
-                    console.log('JWT中的用户ID在数据库中不存在:', userId);
-                  }
-                }
-              }
-            } catch (userCheckError) {
-              console.error('查询用户存在性时出错:', userCheckError.message);
-              jwtDebugInfo.userCheckError = userCheckError.message;
-            }
-          }
-        } catch (authError) {
-          console.error('处理授权头时出错:', authError.message);
-          jwtDebugInfo.authError = authError.message;
-        }
-      }
-
-      // 如果无法从JWT获取用户ID，尝试从会话获取
-      if (!userId && ctx.state && ctx.state.user) {
-        userId = ctx.state.user.id;
-        jwtDebugInfo.methodUsed = 'session';
-        console.log('从会话中获取用户ID:', userId);
-      }
-
-      // 准备分页参数
-      const { page = 1, pageSize = 10 } = ctx.query;
-      const start = (page - 1) * pageSize;
+      const { id } = ctx.params;
       
-      let response = {
-        data: [],
-        success: !!userId && jwtDebugInfo.userFound,
-        userId: userId,
-        jwtDebugInfo // 返回JWT调试信息
-      };
-
-      if (!userId || !jwtDebugInfo.userFound) {
-        console.log('未找到有效用户ID，返回空集合');
-        return response;
+      if (!id) {
+        return ctx.badRequest('用户ID是必需的');
       }
       
-      // 查询数据库中的收藏
-      try {
-        console.log(`查询收藏: 用户ID=${userId}, 页码=${page}, 每页数量=${pageSize}`);
-        
-        // 查询收藏记录
-        const collections = await strapi.db.query('api::video-collection.video-collection').findMany({
-          where: {
-            user: userId,
-          },
-          populate: {
-            video: {
-              populate: ['thumbnail', 'videoFile'],
-            },
-          },
-          orderBy: { collectedAt: 'desc' },
-          limit: parseInt(pageSize),
-          offset: start,
-        });
-        
-        // 查询总数
-        const count = await strapi.db.query('api::video-collection.video-collection').count({
-          where: {
-            user: userId,
-          },
-        });
-        
-        console.log(`找到收藏数量: ${collections.length}, 总数: ${count}`);
-        
-        // 转换格式
-        const transformedCollections = collections.map(collection => {
-          const video = collection.video || {};
-          return {
-            id: collection.id,
-            collectedAt: collection.collectedAt,
-            video: {
-              id: video.id,
-              title: video.title || '未命名视频',
-              description: video.description || '',
-              thumbnail: video.thumbnail?.url || null,
-              url: video.videoFile?.url || null,
-              createdAt: video.createdAt,
-            }
-          };
-        });
-        
-        // 返回结果
-        response.data = transformedCollections;
-        response.meta = {
-          pagination: {
-            page: parseInt(page),
-            pageSize: parseInt(pageSize),
-            pageCount: Math.ceil(count / pageSize),
-            total: count,
-          }
-        };
-      } catch (dbError) {
-        console.error('数据库查询错误:', dbError);
-        response.error = 'Database query failed';
-        response.message = dbError.message;
-        response.data = [];
-      }
-
-      return response;
-    } catch (error) {
-      console.error('获取用户收藏直接路由全局错误:', error);
-      return ctx.send({
-        success: false,
-        error: 'Internal server error',
-        message: error.message,
-        data: []
+      const userId = parseInt(id);
+      
+      // 检查自定义用户表
+      const apiUser = await strapi.db.query('api::user.user').findOne({
+        where: { id: userId }
       });
+      
+      // 检查标准用户表
+      const pluginUser = await strapi.db.query('plugin::users-permissions.user').findOne({
+        where: { id: userId }
+      });
+      
+      // 检查全部用户数量
+      const apiUserCount = await strapi.db.query('api::user.user').count();
+      const pluginUserCount = await strapi.db.query('plugin::users-permissions.user').count();
+      
+      // 获取自定义用户表中所有用户的ID
+      const apiUsers = await strapi.db.query('api::user.user').findMany({
+        select: ['id', 'username', 'nickname', 'openid']
+      });
+      
+      // 获取标准用户表中所有用户的ID
+      const pluginUsers = await strapi.db.query('plugin::users-permissions.user').findMany({
+        select: ['id', 'username', 'email']
+      });
+      
+      return {
+        requestedId: userId,
+        exists: {
+          inApiTable: !!apiUser,
+          inPluginTable: !!pluginUser,
+          inAnyTable: !!(apiUser || pluginUser)
+        },
+        userInfo: {
+          apiUser: apiUser ? {
+            id: apiUser.id,
+            username: apiUser.username,
+            nickname: apiUser.nickname,
+            openid: apiUser.openid
+          } : null,
+          pluginUser: pluginUser ? {
+            id: pluginUser.id,
+            username: pluginUser.username,
+            email: pluginUser.email
+          } : null
+        },
+        counts: {
+          apiUsers: apiUserCount,
+          pluginUsers: pluginUserCount
+        },
+        allApiUserIds: apiUsers.map(u => ({ id: u.id, username: u.username || u.nickname })),
+        allPluginUserIds: pluginUsers.map(u => ({ id: u.id, username: u.username }))
+      };
+    } catch (error) {
+      strapi.log.error(`检查用户存在性时出错: ${error.message}`);
+      return ctx.badRequest('检查用户失败', { error: error.message });
     }
   },
 })); 
