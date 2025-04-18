@@ -131,7 +131,7 @@ Page({
         });
         
         // 获取用户信息
-        setTimeout(() => this.fetchUserProfile(), 100);
+        setTimeout(() => this.getUserProfileFromAPI(), 100);
         
         // 获取收藏视频
         setTimeout(() => this.getFavoriteVideos(), 200);
@@ -175,7 +175,7 @@ Page({
         });
         
         // 获取用户信息
-        setTimeout(() => this.fetchUserProfile(), 100);
+        setTimeout(() => this.getUserProfileFromAPI(), 100);
         
         // 获取收藏视频
         setTimeout(() => this.getFavoriteVideos(), 200);
@@ -200,7 +200,7 @@ Page({
     if (loggedIn) {
       console.log('用户已登录，开始获取用户资料');
       // 获取用户信息
-      this.fetchUserProfile();
+      this.getUserProfileFromAPI();
       
       // 同时开始获取收藏视频
       setTimeout(() => {
@@ -677,6 +677,69 @@ Page({
     navigateTo('/pages/webview/webview', {
       url: 'https://example.com/privacy',
       title: '隐私政策'
+    });
+  },
+
+  // 获取用户信息
+  getUserProfileFromAPI: function() {
+    console.log('开始获取用户资料信息');
+    
+    api.getCurrentUser({
+      success: (res) => {
+        if (res.code === 0 && res.data) {
+          console.log('成功获取用户资料:', res.data);
+          
+          // 更新页面数据
+          this.setData({
+            userInfo: res.data,
+            loading: false,
+            stats: {
+              followingCount: res.data.followingCount || res.data.stats?.followingCount || 0,
+              followerCount: res.data.followerCount || res.data.stats?.followerCount || 0,
+              likeCount: res.data.likeCount || res.data.stats?.likeCount || 0,
+              collectionsCount: res.data.collectionsCount || res.data.stats?.collectionsCount || 0
+            }
+          });
+          
+          // 保存到本地存储以便后续使用
+          try {
+            tt.setStorageSync('userInfo', JSON.stringify(res.data));
+          } catch (e) {
+            console.error('保存用户信息到本地存储失败:', e);
+          }
+        } else {
+          console.error('获取用户资料失败:', res.msg || '服务器返回错误数据');
+          // 使用本地缓存的用户信息（如果有）
+          const userInfoStr = tt.getStorageSync('userInfo');
+          if (userInfoStr) {
+            try {
+              const userData = JSON.parse(userInfoStr);
+              this.setData({
+                userInfo: userData,
+                loading: false
+              });
+            } catch (e) {
+              console.error('解析本地存储的用户信息失败:', e);
+            }
+          }
+        }
+      },
+      fail: (err) => {
+        console.error('获取用户资料请求失败:', err);
+        // 使用本地缓存的用户信息（如果有）
+        const userInfoStr = tt.getStorageSync('userInfo');
+        if (userInfoStr) {
+          try {
+            const userData = JSON.parse(userInfoStr);
+            this.setData({
+              userInfo: userData,
+              loading: false
+            });
+          } catch (e) {
+            console.error('解析本地存储的用户信息失败:', e);
+          }
+        }
+      }
     });
   }
 }); 

@@ -16,92 +16,53 @@ const useMockData = !useRealApi; // 是否使用模拟数据
 
 // 获取视频详情
 const getVideoDetail = (params) => {
-  // 处理不同格式的参数调用
-  let videoId, defaultData, success, fail;
-  
-  // 检查是否为对象格式的参数还是旧的字符串格式
-  if (typeof params === 'object') {
-    videoId = params.videoId;
-    defaultData = params.defaultData || null;
-    success = params.success;
-    fail = params.fail;
-  } else {
-    // 向后兼容旧的调用方式
-    videoId = params;
-    defaultData = null;
-    success = arguments[1];
-    fail = arguments[2];
+  if (!params || !params.id) {
+    console.error('获取视频详情: 缺少视频ID');
+    if (params && params.fail) {
+      params.fail(new Error('视频ID不能为空'));
+    }
+    return Promise.reject(new Error('视频ID不能为空'));
   }
-  
-  if (useRealApi) {
-    const apiUrl = `${config.apiBaseUrl}videos/${videoId}?populate=*`;
-    console.log('获取视频详情API地址:', apiUrl);
-    
-    return externalApi.callUrl(apiUrl)
-      .then(res => {
-        if (res && res.data) {
-          // 使用视频工具处理数据
-          const videoDetail = videoUtil.processVideo(res.data);
-          
-          if (success && typeof success === 'function') {
-            success({ code: 0, data: videoDetail });
-          }
-          
-          return { code: 0, success: true, data: videoDetail };
-        } else {
-          throw new Error('视频详情数据格式错误');
-        }
-      })
-      .catch(err => {
-        console.error('获取视频详情失败', err);
-        
-        // 如果提供了默认数据，则使用它
-        if (defaultData) {
-          console.log('API请求失败(可能是404)，使用缓存数据:', defaultData);
-          const processedDefaultData = videoUtil.processVideo(defaultData);
-          if (success && typeof success === 'function') {
-            success({ code: 0, data: processedDefaultData });
-          }
-          return { code: 0, success: true, data: processedDefaultData };
-        }
-        
-        // 否则使用默认视频详情
-        const defaultVideoDetail = {
-          id: videoId || 1,
-          title: '示例视频',
-          description: '这是一个示例视频，当API获取视频详情失败时显示',
-          coverUrl: 'https://via.placeholder.com/480x720/333333/FFFFFF?text=视频封面',
-          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-          url: 'https://www.w3schools.com/html/mov_bbb.mp4', // 添加url字段兼容性
-          duration: 15,
-          views: Math.floor(Math.random() * 10000),
-          likes: Math.floor(Math.random() * 1000),
-          comments: Math.floor(Math.random() * 100),
-          shares: Math.floor(Math.random() * 50),
-          createdAt: new Date().toISOString(),
-          author: {
-            id: 999,
-            name: '示例用户',
-            avatarUrl: 'https://via.placeholder.com/100x100/333333/FFFFFF?text=用户头像',
-            followers: Math.floor(Math.random() * 1000)
-          }
-        };
-        
-        if (success && typeof success === 'function') {
-          success({ code: 0, data: defaultVideoDetail });
-        } else if (fail && typeof fail === 'function') {
-          fail(err);
-        }
-        
-        return { code: 0, success: true, data: defaultVideoDetail };
-      });
-  } else {
-    return request.get('/api/video/detail', {
-      data: { videoId: videoId },
-      success: success,
-      fail: fail
-    });
-  }
+
+  const videoId = params.id;
+  console.log('正在获取视频详情, ID:', videoId);
+
+  return new Promise((resolve, reject) => {
+    // 模拟API调用
+    setTimeout(() => {
+      // 模拟视频数据
+      const videoData = {
+        id: videoId,
+        title: '示例视频 ' + videoId,
+        url: 'https://sf3-cdn-tos.bytescm.com/obj/ttfe/douyin_apps/test_video.mp4',
+        coverUrl: 'https://sf3-cdn-tos.bytescm.com/obj/ttfe/douyin_apps/test_cover.jpg',
+        description: '这是一个示例视频的详细描述',
+        createTime: new Date().toISOString(),
+        views: Math.floor(Math.random() * 10000),
+        likeCount: Math.floor(Math.random() * 1000),
+        collectCount: Math.floor(Math.random() * 500),
+        commentCount: Math.floor(Math.random() * 200),
+        shareCount: Math.floor(Math.random() * 100),
+        isLiked: false,
+        isCollected: false,
+        author: {
+          id: 1001,
+          name: '示例作者',
+          avatarUrl: 'https://sf3-cdn-tos.bytescm.com/obj/ttfe/douyin_apps/author_avatar.jpg',
+          followingCount: 88,
+          followerCount: 999,
+          isFollowing: false
+        },
+        tags: ['示例', '演示', '测试']
+      };
+
+      if (params.success) {
+        params.success({ code: 0, data: videoData });
+      }
+      
+      resolve({ success: true, data: videoData });
+    }, 500);
+  });
 };
 
 // 获取视频评论列表

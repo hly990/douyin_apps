@@ -1131,55 +1131,138 @@ Page({
     });
   },
 
-  // 点赞按钮点击事件
-  handleLike: function() {
-    const isLiked = !this.data.isLiked;
-    this.setData({
-      isLiked: isLiked,
-      likeCount: isLiked ? (this.data.likeCount || 0) + 1 : Math.max((this.data.likeCount || 0) - 1, 0)
-    });
-    
-    // 发送点赞请求到服务器
-    const videoId = this.data.videoData.id;
-    tt.showToast({
-      title: isLiked ? '已点赞' : '已取消点赞',
-      icon: 'none',
-      duration: 1500
-    });
-    
-    // TODO: 发送点赞请求到服务器
-    // this.likeVideoRequest(videoId, isLiked);
-  },
-  
-  // 收藏按钮点击事件
-  handleCollect: function() {
-    const isCollected = !this.data.isCollected;
-    this.setData({
-      isCollected: isCollected
-    });
-    
-    // 发送收藏请求到服务器
-    const videoId = this.data.videoData.id;
-    tt.showToast({
-      title: isCollected ? '已收藏' : '已取消收藏',
-      icon: 'none',
-      duration: 1500
-    });
-    
-    // TODO: 发送收藏请求到服务器
-    // this.collectVideoRequest(videoId, isCollected);
-  },
-  
   // 模板绑定的点赞方法，调用 handleLike
   likeVideo: function() {
-    this.handleLike();
+    const videoId = this.data.videoId;
+    const isLiked = this.data.isLiked;
+    
+    console.log(`尝试${isLiked ? '取消点赞' : '点赞'}视频: ID=${videoId}`);
+    
+    // 乐观更新UI
+    this.setData({
+      isLiked: !isLiked,
+      likeCount: isLiked ? Math.max(0, (this.data.likeCount || 0) - 1) : (this.data.likeCount || 0) + 1
+    });
+    
+    // 显示操作提示
+    tt.showToast({
+      title: !isLiked ? '已点赞' : '已取消点赞',
+      icon: 'none',
+      duration: 1500
+    });
+    
+    // 调用API
+    api.toggleVideoLike({
+      videoId: videoId,
+      success: (res) => {
+        console.log('切换点赞状态成功:', res);
+        
+        if (res.code === 0 && res.data) {
+          const liked = res.data.liked;
+          
+          // 如果服务器返回的状态与我们乐观更新的不一致，则以服务器为准
+          if (liked !== this.data.isLiked) {
+            this.setData({
+              isLiked: liked,
+              likeCount: liked ? (this.data.likeCount || 0) + 1 : Math.max(0, (this.data.likeCount || 0) - 1)
+            });
+          }
+          
+          // 如果视频数据对象存在，更新其中的点赞状态
+          if (this.data.videoData) {
+            const updatedVideoData = {...this.data.videoData};
+            updatedVideoData.isLiked = liked;
+            updatedVideoData.likeCount = this.data.likeCount;
+            
+            this.setData({
+              videoData: updatedVideoData
+            });
+          }
+          
+          // 更新缓存中的视频点赞状态
+          this.updateCachedVideoLikeStatus(videoId, liked);
+        }
+      },
+      fail: (err) => {
+        console.error('切换点赞状态失败:', err);
+        // 操作失败，恢复原状态
+        this.setData({
+          isLiked: isLiked,
+          likeCount: isLiked ? (this.data.likeCount || 0) + 1 : Math.max(0, (this.data.likeCount || 0) - 1)
+        });
+        
+        tt.showToast({
+          title: '操作失败，请重试',
+          icon: 'none'
+        });
+      }
+    });
   },
   
   // 模板绑定的收藏方法，调用 handleCollect
   collectVideo: function() {
-    this.handleCollect();
+    const videoId = this.data.videoId;
+    const isCollected = this.data.isCollected;
+    
+    console.log(`尝试${isCollected ? '取消收藏' : '收藏'}视频: ID=${videoId}`);
+    
+    // 乐观更新UI
+    this.setData({
+      isCollected: !isCollected
+    });
+    
+    // 显示操作提示
+    tt.showToast({
+      title: !isCollected ? '已收藏' : '已取消收藏',
+      icon: 'none',
+      duration: 1500
+    });
+    
+    // 调用API
+    api.toggleVideoCollection({
+      videoId: videoId,
+      success: (res) => {
+        console.log('切换收藏状态成功:', res);
+        
+        if (res.code === 0 && res.data) {
+          const collected = res.data.collected;
+          
+          // 如果服务器返回的状态与我们乐观更新的不一致，则以服务器为准
+          if (collected !== this.data.isCollected) {
+            this.setData({
+              isCollected: collected
+            });
+          }
+          
+          // 如果视频数据对象存在，更新其中的收藏状态
+          if (this.data.videoData) {
+            const updatedVideoData = {...this.data.videoData};
+            updatedVideoData.isCollected = collected;
+            
+            this.setData({
+              videoData: updatedVideoData
+            });
+          }
+          
+          // 更新缓存中的视频收藏状态
+          this.updateCachedVideoCollectStatus(videoId, collected);
+        }
+      },
+      fail: (err) => {
+        console.error('切换收藏状态失败:', err);
+        // 操作失败，恢复原状态
+        this.setData({
+          isCollected: isCollected
+        });
+        
+        tt.showToast({
+          title: '操作失败，请重试',
+          icon: 'none'
+        });
+      }
+    });
   },
-
+  
   // 预加载视频处理
   prepareVideo(videoUrl) {
     if (!videoUrl) {

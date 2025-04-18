@@ -45,13 +45,13 @@
 
     <!-- 右侧操作区 -->
     <view class="action-bar">
-      <view class="action-item">
+      <view class="action-item" bindtap="likeVideo">
         <view class="action-icon {{isLiked ? 'active' : ''}}">
           <text class="action-icon-inner">{{isLiked ? '❤️' : '♡'}}</text>
         </view>
         <text class="action-text">{{likeCount || 0}}</text>
       </view>
-      <view class="action-item">
+      <view class="action-item" bindtap="collectVideo">
         <view class="action-icon {{isCollected ? 'active' : ''}}">
           <text class="action-icon-inner">{{isCollected ? '★' : '☆'}}</text>
         </view>
