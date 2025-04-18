@@ -1,6 +1,7 @@
 // app.js
 const api = require('./api/api');
 const tokenManager = require('./utils/tokenManager');
+const videoStateManager = require('./utils/videoStateManager');
 
 App({
   // 全局数据
@@ -79,6 +80,9 @@ App({
         originalRedirectTo.call(this, options);
       }
     };
+    
+    // 初始化状态管理
+    this.initVideoStates();
   },
   
   // 使用新API初始化云开发环境 - 仅供参考，实际由cloud.js模块处理
@@ -514,4 +518,18 @@ App({
     'pages/profile/edit/edit',
     'pages/category/category'
   ],
+
+  // 初始化视频状态
+  initVideoStates: function() {
+    try {
+      // 从本地存储加载视频列表
+      const videoList = tt.getStorageSync('videoList') || [];
+      if (videoList.length > 0) {
+        console.log('初始化视频状态管理，加载', videoList.length, '个视频');
+        videoStateManager.updateVideoList(videoList);
+      }
+    } catch (e) {
+      console.error('初始化视频状态失败:', e);
+    }
+  },
 }); 

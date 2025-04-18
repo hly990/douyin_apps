@@ -9,6 +9,7 @@ const { navigateTo, navigateBack } = require('../../utils/router');
 const { request } = require('../../utils/request');
 const utils = require('../../utils/util');
 const api = require('../../api/api');
+const videoStateManager = require('../../utils/videoStateManager');
 
 Page({
   data: {
@@ -391,6 +392,9 @@ Page({
           
           console.log('获取收藏视频成功:', videoList.length, '条记录');
           
+          // 使用状态管理器同步收藏列表
+          videoStateManager.syncCollectionList(videoList);
+          
           if (videoList.length > 0) {
             console.log('第一个视频示例:', JSON.stringify(videoList[0]));
           }
@@ -486,42 +490,20 @@ Page({
 
   // 点击视频卡片
   onTapVideo: function (e) {
-    // 获取视频ID和索引
     const videoId = e.currentTarget.dataset.id;
-    const videoIndex = e.currentTarget.dataset.index;
+    const index = e.currentTarget.dataset.index;
     
-    if (!videoId && videoId !== 0) {
-      tt.showToast({
-        title: '无效的视频',
-        icon: 'none'
-      });
-      return;
+    // 导航到视频详情页之前，确保视频的收藏状态正确
+    const video = this.data.videos[index];
+    if (video) {
+      // 确保收藏状态为true
+      videoStateManager.setVideoCollectStatus(videoId, true, video);
     }
     
-    try {
-      // 获取完整的视频数据
-      const videoData = this.data.videos[videoIndex];
-      
-      if (!videoData) {
-        console.error('未找到视频数据，索引:', videoIndex);
-        return;
-      }
-      
-      // 先将数据转换为JSON字符串，然后进行URL编码
-      const encodedVideoData = encodeURIComponent(JSON.stringify(videoData));
-      
-      // 传递完整视频信息到详情页
-      tt.navigateTo({
-        url: `/pages/videoDetail/videoDetail?videoData=${encodedVideoData}`
-      });
-    } catch (error) {
-      console.error('导航到视频详情时出错:', error);
-      
-      // 降级处理：仅使用ID导航
-      tt.navigateTo({
-        url: `/pages/videoDetail/videoDetail?id=${videoId}`
-      });
-    }
+    // 导航到视频详情
+    tt.navigateTo({
+      url: `/pages/videoDetail/videoDetail?id=${videoId}`
+    });
   },
   
   // 前往设置页面

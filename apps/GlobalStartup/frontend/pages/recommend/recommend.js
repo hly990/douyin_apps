@@ -2,6 +2,7 @@ const app = getApp();
 const utils = require('../../utils/util');
 const api = require('../../api/api');
 const videoUtil = require('../../utils/video');
+const videoStateManager = require('../../utils/videoStateManager');
 
 Page({
   data: {
@@ -136,6 +137,9 @@ Page({
           });
           
           console.log('处理后的视频列表:', processedVideos);
+          
+          // 使用全局状态管理器更新处理后的视频
+          videoStateManager.updateVideoList(processedVideos);
           
           if(isRefresh) {
             // 下拉刷新，重置列表
@@ -570,7 +574,10 @@ Page({
       videoList: videoList
     });
     
-    // 调用新的API
+    // 使用全局状态管理器更新状态
+    videoStateManager.setVideoLikeStatus(videoId, !isLiked, videoList[index]);
+    
+    // 调用API
     api.toggleVideoLike({
       videoId: videoId,
       success: (res) => {
@@ -590,27 +597,16 @@ Page({
             this.setData({
               videoList: updatedList
             });
+            
+            // 更新全局状态
+            videoStateManager.setVideoLikeStatus(videoId, liked, updatedList[index]);
           }
-          
-          // 更新缓存
-          tt.setStorageSync('videoList', this.data.videoList);
         }
       },
       fail: (err) => {
         console.error('切换点赞状态失败:', err);
-        // 操作失败，恢复原状态
-        const videoList = [...this.data.videoList];
-        videoList[index].isLiked = isLiked;
-        videoList[index].likes = isLiked ? (videoList[index].likes || 0) + 1 : Math.max(0, (videoList[index].likes || 0) - 1);
-        
-        this.setData({
-          videoList: videoList
-        });
-        
-        tt.showToast({
-          title: '操作失败，请重试',
-          icon: 'none'
-        });
+        // 恢复全局状态
+        videoStateManager.setVideoLikeStatus(videoId, isLiked, videoList[index]);
       }
     });
   },
@@ -631,7 +627,10 @@ Page({
       videoList: videoList
     });
     
-    // 调用新的API
+    // 使用全局状态管理器更新状态
+    videoStateManager.setVideoCollectStatus(videoId, !isCollected, videoList[index]);
+    
+    // 调用API
     api.toggleVideoCollection({
       videoId: videoId,
       success: (res) => {
@@ -648,26 +647,16 @@ Page({
             this.setData({
               videoList: updatedList
             });
+            
+            // 更新全局状态
+            videoStateManager.setVideoCollectStatus(videoId, collected, updatedList[index]);
           }
-          
-          // 更新缓存
-          tt.setStorageSync('videoList', this.data.videoList);
         }
       },
       fail: (err) => {
         console.error('切换收藏状态失败:', err);
-        // 操作失败，恢复原状态
-        const videoList = [...this.data.videoList];
-        videoList[index].isCollected = isCollected;
-        
-        this.setData({
-          videoList: videoList
-        });
-        
-        tt.showToast({
-          title: '操作失败，请重试',
-          icon: 'none'
-        });
+        // 恢复全局状态
+        videoStateManager.setVideoCollectStatus(videoId, isCollected, videoList[index]);
       }
     });
   },

@@ -4,6 +4,7 @@ const api = require('../../api/api');
 const videoUtil = require('../../utils/video');
 const { isLoggedIn } = require('../../utils/auth');
 const { requireLogin } = require('../../utils/authManager');
+const videoStateManager = require('../../utils/videoStateManager');
 
 // 添加一个全局变量记录上次播放时间
 let lastPlayTime = 0;
@@ -104,36 +105,17 @@ Page({
     let videoData = null;
     const videoId = options.id;
     
-    if (videoId) {
-      this.setData({
-        videoId: videoId
+    // 先检查全局状态管理器中的缓存
+    const cachedData = videoStateManager.getVideoState(videoId);
+    
+    if (cachedData) {
+      this.setData({ 
+        videoData: cachedData,
+        videoId: videoId,
+        isLiked: cachedData.isLiked,
+        isCollected: cachedData.isCollected 
       });
-      
-      // 尝试从缓存中恢复该视频的状态
-      const cachedVideoState = tt.getStorageSync(`video_state_${videoId}`);
-      if (cachedVideoState) {
-        console.log('从缓存恢复视频状态:', cachedVideoState);
-        this.setData({
-          videoData: cachedVideoState,
-          video: cachedVideoState,
-          isLoading: false,
-          loading: false,
-          loadFailed: false,
-          isVideoReady: true
-        });
-        
-        // 准备视频
-        if (cachedVideoState.url) {
-          this.prepareVideo(cachedVideoState.url);
-        }
-        
-        // 获取相关视频
-        this.fetchRelatedVideosNoAPI(videoId);
-        
-        // 同时请求最新数据，但不阻止UI展示
-        this.fetchVideoData(videoId);
-        return;
-      }
+      this.initVideoContext(); // 立即初始化UI
     }
     
     // 尝试从URL参数中解析完整的视频数据
@@ -225,6 +207,10 @@ Page({
       this.videoContext.stop();
     }
     console.log('页面卸载，停止视频播放');
+
+    if (this.data.videoData && this.data.videoId) {
+      videoStateManager.saveVideoState(this.data.videoId, this.data.videoData);
+    }
   },
 
   onShow: function() {
@@ -396,132 +382,55 @@ Page({
     }
     
     try {
-      // 使用try-catch块包装整个操作
       // 点赞状态检查
-      const checkLikeStatus = async () => {
-        try {
-          const result = await new Promise((resolve, reject) => {
-            api.checkVideoLike({
-              videoId: videoId,
-              success: (res) => {
-                if (res.code === 0 && res.data) {
-                  // 更新videoData中的状态而非顶层状态
-                  const updatedVideoData = {...this.data.videoData};
-                  updatedVideoData.isLiked = res.data.liked;
-                  
-                  this.setData({
-                    videoData: updatedVideoData
-                  });
-                  
-                  // 更新本地缓存
-                  tt.setStorageSync(`video_state_${videoId}`, updatedVideoData);
-                  
-                  resolve(res);
-                } else {
-                  reject(new Error('获取点赞状态失败'));
-                }
-              },
-              fail: (err) => {
-                reject(err);
-              }
-            });
-          });
-          console.log('点赞状态获取成功', result);
-          return result;
-        } catch (error) {
-          console.error('获取点赞状态失败:', error);
-          
-          // 使用默认值，但不覆盖已有状态
-          const updatedVideoData = {...this.data.videoData};
-          // 只有在没有已存在状态时才设置默认值
-          if (updatedVideoData.isLiked === undefined) {
-            updatedVideoData.isLiked = false;
+      api.checkVideoLike({
+        videoId: videoId,
+        success: (res) => {
+          if (res.code === 0 && res.data) {
+            // 更新videoData中的状态
+            const updatedVideoData = {...this.data.videoData};
+            updatedVideoData.isLiked = res.data.liked;
             
             this.setData({
               videoData: updatedVideoData
             });
-          } else {
-            console.log('保留现有点赞状态:', updatedVideoData.isLiked);
-          }
-          
-          // 不抛出错误，允许程序继续执行
-          return { success: true, liked: updatedVideoData.isLiked };
-        }
-      };
-      
-      // 收藏状态检查
-      const checkCollectionStatus = async () => {
-        try {
-          const result = await new Promise((resolve, reject) => {
-            api.checkVideoCollection({
-              videoId: videoId,
-              success: (res) => {
-                if (res.code === 0 && res.data) {
-                  // 更新videoData中的状态而非顶层状态
-                  const updatedVideoData = {...this.data.videoData};
-                  updatedVideoData.isCollected = res.data.collected;
-                  
-                  this.setData({
-                    videoData: updatedVideoData
-                  });
-                  
-                  // 更新本地缓存
-                  tt.setStorageSync(`video_state_${videoId}`, updatedVideoData);
-                  
-                  resolve(res);
-                } else {
-                  reject(new Error('获取收藏状态失败'));
-                }
-              },
-              fail: (err) => {
-                reject(err);
-              }
-            });
-          });
-          console.log('收藏状态获取成功', result);
-          return result;
-        } catch (error) {
-          console.error('获取收藏状态失败:', error);
-          
-          // 使用默认值，但不覆盖已有状态
-          const updatedVideoData = {...this.data.videoData};
-          // 只有在没有已存在状态时才设置默认值
-          if (updatedVideoData.isCollected === undefined) {
-            updatedVideoData.isCollected = false;
             
-            this.setData({
-              videoData: updatedVideoData
-            });
-          } else {
-            console.log('保留现有收藏状态:', updatedVideoData.isCollected);
+            // 使用全局状态管理器更新状态
+            videoStateManager.saveVideoState(videoId, updatedVideoData);
           }
-          
-          // 不抛出错误，允许程序继续执行
-          return { success: true, collected: updatedVideoData.isCollected };
+        },
+        fail: (err) => {
+          console.error('获取点赞状态失败:', err);
+          // 保留现有状态
         }
-      };
-      
-      // 直接执行检查，不使用requireLogin包装
-      // 这样可以避免错误的401处理清除令牌
-      checkLikeStatus().then(() => {
-        console.log('点赞状态检查完成');
       });
       
-      checkCollectionStatus().then(() => {
-        console.log('收藏状态检查完成');
+      // 收藏状态检查
+      api.checkVideoCollection({
+        videoId: videoId,
+        success: (res) => {
+          if (res.code === 0 && res.data) {
+            // 更新videoData中的状态
+            const updatedVideoData = {...this.data.videoData};
+            updatedVideoData.isCollected = res.data.collected;
+            
+            this.setData({
+              videoData: updatedVideoData
+            });
+            
+            // 使用全局状态管理器更新状态
+            videoStateManager.saveVideoState(videoId, updatedVideoData);
+          }
+        },
+        fail: (err) => {
+          console.error('获取收藏状态失败:', err);
+          // 保留现有状态
+        }
       });
       
     } catch (error) {
       // 捕获任何可能的错误，确保页面不会崩溃
       console.error('检查视频状态总体失败:', error);
-      // 设置默认状态，但不覆盖已有状态
-      const updatedVideoData = {...this.data.videoData};
-      if (updatedVideoData.isLiked === undefined) updatedVideoData.isLiked = false;
-      if (updatedVideoData.isCollected === undefined) updatedVideoData.isCollected = false;
-      
-      this.setData({
-        videoData: updatedVideoData
-      });
     }
   },
   
@@ -1235,8 +1144,8 @@ Page({
       videoData: updatedVideoData
     });
     
-    // 立即更新缓存，确保UI状态一致性
-    tt.setStorageSync(`video_state_${videoId}`, updatedVideoData);
+    // 使用全局状态管理器更新状态
+    videoStateManager.saveVideoState(videoId, updatedVideoData);
     
     // 显示操作提示
     tt.showToast({
@@ -1264,12 +1173,9 @@ Page({
               videoData: updatedData
             });
             
-            // 更新缓存中的视频状态
-            tt.setStorageSync(`video_state_${videoId}`, updatedData);
+            // 使用全局状态管理器更新状态
+            videoStateManager.saveVideoState(videoId, updatedData);
           }
-          
-          // 更新缓存中的视频点赞状态（视频列表缓存）
-          this.updateCachedVideoLikeStatus(videoId, liked);
         }
       },
       fail: (err) => {
@@ -1283,8 +1189,8 @@ Page({
           videoData: updatedData
         });
         
-        // 恢复缓存
-        tt.setStorageSync(`video_state_${videoId}`, updatedData);
+        // 恢复全局状态
+        videoStateManager.saveVideoState(videoId, updatedData);
         
         tt.showToast({
           title: '操作失败，请重试',
@@ -1311,8 +1217,8 @@ Page({
       videoData: updatedVideoData
     });
     
-    // 立即更新缓存，确保UI状态一致性
-    tt.setStorageSync(`video_state_${videoId}`, updatedVideoData);
+    // 使用全局状态管理器更新状态
+    videoStateManager.saveVideoState(videoId, updatedVideoData);
     
     // 显示操作提示
     tt.showToast({
@@ -1339,12 +1245,9 @@ Page({
               videoData: updatedData
             });
             
-            // 更新缓存
-            tt.setStorageSync(`video_state_${videoId}`, updatedData);
+            // 使用全局状态管理器更新状态
+            videoStateManager.saveVideoState(videoId, updatedData);
           }
-          
-          // 更新缓存中的视频收藏状态（视频列表缓存）
-          this.updateCachedVideoCollectStatus(videoId, collected);
         }
       },
       fail: (err) => {
@@ -1357,8 +1260,8 @@ Page({
           videoData: updatedData
         });
         
-        // 恢复缓存
-        tt.setStorageSync(`video_state_${videoId}`, updatedData);
+        // 恢复全局状态
+        videoStateManager.saveVideoState(videoId, updatedData);
         
         tt.showToast({
           title: '操作失败，请重试',
