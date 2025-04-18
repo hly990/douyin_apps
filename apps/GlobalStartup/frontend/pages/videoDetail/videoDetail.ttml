@@ -46,14 +46,14 @@
     <!-- 右侧操作区 -->
     <view class="action-bar">
       <view class="action-item" bindtap="likeVideo">
-        <view class="action-icon {{isLiked ? 'active' : ''}}">
-          <text class="action-icon-inner">{{isLiked ? '❤️' : '♡'}}</text>
+        <view class="action-icon {{videoData.isLiked ? 'active' : ''}}">
+          <text class="action-icon-inner">{{videoData.isLiked ? '❤️' : '♡'}}</text>
         </view>
-        <text class="action-text">{{likeCount || 0}}</text>
+        <text class="action-text">{{videoData.likeCount || 0}}</text>
       </view>
       <view class="action-item" bindtap="collectVideo">
-        <view class="action-icon {{isCollected ? 'active' : ''}}">
-          <text class="action-icon-inner">{{isCollected ? '★' : '☆'}}</text>
+        <view class="action-icon {{videoData.isCollected ? 'active' : ''}}">
+          <text class="action-icon-inner">{{videoData.isCollected ? '★' : '☆'}}</text>
         </view>
         <text class="action-text">收藏</text>
       </view>

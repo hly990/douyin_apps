@@ -1471,3 +1471,93 @@ touchEnd: function(e) {
 ```
 
 此模式可提供流畅的滑动返回体验，使应用交互更符合用户习惯，并降低单手操作的难度。
+
+## 状态管理模式
+
+### 本地状态持久化与后台同步模式
+
+在GlobalStartup中，我们采用本地优先+后台同步的数据管理策略，以提供流畅的用户体验，同时确保数据的最终一致性。这种模式应用在多个页面中，包括recommend.js和videoDetail.js。
+
+**核心机制**:
+1. **本地优先渲染**:
+   - 页面加载时首先检查本地存储中是否有缓存数据
+   - 若有缓存，立即使用缓存数据渲染UI，减少白屏时间
+   - 在UI渲染完成后，后台发起API请求获取最新数据
+
+2. **即时状态持久化**:
+   - 用户交互后(如点赞、收藏)，立即更新本地UI状态
+   - 同步将状态变更保存到本地存储
+   - 在成功/失败的API回调中更新最终状态
+
+3. **生命周期管理**:
+   - 在页面的关键生命周期(如onHide, onUnload)中保存当前状态
+   - 确保即使用户突然退出，状态也不会丢失
+
+4. **异常处理策略**:
+   - 网络请求失败时保留当前UI状态，而非重置为默认值
+   - 提供视觉反馈指示操作状态(成功/失败)
+   - 在适当时机自动重试失败的操作
+
+**实现示例(videoDetail.js)**:
+```javascript
+// 加载时优先使用缓存
+onLoad: function(options) {
+  const videoId = options.id;
+  const cachedData = tt.getStorageSync(`video_state_${videoId}`);
+  
+  if (cachedData) {
+    this.setData({ videoData: cachedData });
+    this.initVideoContext(); // 立即初始化UI
+  }
+  
+  // 后台请求最新数据
+  this.fetchVideoData(videoId);
+},
+
+// 用户操作时保存状态
+likeVideo: function() {
+  // 1. 乐观更新UI
+  const updatedVideoData = { ...this.data.videoData, isLiked: !this.data.isLiked };
+  this.setData({ isLiked: !this.data.isLiked, videoData: updatedVideoData });
+  
+  // 2. 立即保存到本地存储
+  const videoId = this.data.videoData.id;
+  tt.setStorageSync(`video_state_${videoId}`, updatedVideoData);
+  
+  // 3. 发送API请求
+  toggleVideoLike({ id: videoId })
+    .then(res => {
+      // 成功时可能需要更新其他状态
+      console.log('点赞成功', res);
+    })
+    .catch(err => {
+      console.error('点赞失败', err);
+      // 错误时可以选择回滚状态或保留
+      // 此处选择保留当前状态，不打断用户体验
+    });
+},
+
+// 页面退出时保存状态
+onUnload: function() {
+  const videoId = this.data.videoData.id;
+  tt.setStorageSync(`video_state_${videoId}`, this.data.videoData);
+}
+```
+
+**适用场景**:
+- 用户交互频繁的页面(如点赞、收藏、评论等)
+- 需要快速响应用户操作的功能
+- 网络状况不稳定的使用环境
+- 需要跨页面保持状态一致性的功能
+
+**优势**:
+- 显著提升用户体验，操作感受更流畅
+- 减少加载等待时间，页面切换更迅速
+- 增强应用在弱网环境下的可用性
+- 降低服务器负载，减少不必要的API调用
+
+**注意事项**:
+- 需处理本地数据与服务器数据不一致的情况
+- 应设置合理的缓存过期策略
+- 敏感操作仍应以服务器数据为准
+- 缓存大小应有合理限制，避免存储溢出
