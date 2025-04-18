@@ -35,7 +35,10 @@ Page({
   },
   
   onShow: function() {
-    // 当页面显示时，播放当前视频
+    // 当页面显示时，先同步当前视频状态
+    this.syncCurrentVideoState();
+    
+    // 播放当前视频
     this.playCurrentVideo();
     
     // 更新自定义tabBar选中状态
@@ -138,13 +141,13 @@ Page({
           
           console.log('处理后的视频列表:', processedVideos);
           
-          // 使用全局状态管理器更新处理后的视频
-          videoStateManager.updateVideoList(processedVideos);
+          let finalVideos = [];
           
           if(isRefresh) {
             // 下拉刷新，重置列表
+            finalVideos = processedVideos;
             this.setData({
-              videoList: processedVideos,
+              videoList: finalVideos,
               currentIndex: 0,
               refreshing: false,
               isLoading: false,
@@ -156,19 +159,23 @@ Page({
             tt.stopPullDownRefresh();
           } else {
             // 上拉加载更多
+            finalVideos = [...this.data.videoList, ...processedVideos];
             this.setData({
-              videoList: [...this.data.videoList, ...processedVideos],
+              videoList: finalVideos,
               isLoading: false,
               hasMore: pagination.hasMore,
               page: page
             });
           }
           
+          // 使用全局状态管理器更新处理后的视频
+          videoStateManager.updateVideoList(finalVideos);
+          
           // 加载完成后播放当前视频
           this.playCurrentVideo();
           
-          // 缓存视频列表，用于提高体验和离线访问
-          tt.setStorageSync('videoList', this.data.videoList);
+          // 缓存视频列表，使用已经包含了状态更新的最终列表
+          tt.setStorageSync('videoList', finalVideos);
         } else {
           console.error('视频列表数据为空或格式不正确:', res);
           this.handleLoadError('获取到的视频列表为空');
@@ -696,11 +703,20 @@ Page({
   // 点击视频卡片，跳转到视频详情页
   navigateToVideo: function(e) {
     const videoId = e.currentTarget.dataset.id;
-    if (videoId) {
-      tt.navigateTo({
-        url: `/pages/videoDetail/videoDetail?id=${videoId}`
-      });
+    if (!videoId) return;
+    
+    // 查找视频在列表中的索引
+    const index = this.data.videoList.findIndex(video => video.id == videoId);
+    if (index !== -1) {
+      // 确保视频状态被正确保存到全局状态管理器
+      const video = this.data.videoList[index];
+      videoStateManager.saveVideoState(videoId, video);
     }
+    
+    // 导航到视频详情页
+    tt.navigateTo({
+      url: `/pages/videoDetail/videoDetail?id=${videoId}`
+    });
   },
 
   // 分享
@@ -709,5 +725,44 @@ Page({
       title: '发现更多精彩创业视频',
       path: '/pages/recommend/recommend'
     };
+  },
+
+  // 同步当前视频状态方法
+  syncCurrentVideoState: function() {
+    const { videoList, currentIndex } = this.data;
+    if (videoList.length === 0 || currentIndex < 0 || currentIndex >= videoList.length) return;
+    
+    const currentVideo = videoList[currentIndex];
+    if (!currentVideo || !currentVideo.id) return;
+    
+    // 从videoStateManager获取最新状态
+    const cachedState = videoStateManager.getVideoState(currentVideo.id);
+    if (!cachedState) return;
+    
+    // 只更新需要同步的状态字段
+    if (cachedState.isLiked !== undefined && cachedState.isLiked !== currentVideo.isLiked) {
+      console.log(`同步视频[${currentVideo.id}]点赞状态: ${currentVideo.isLiked} -> ${cachedState.isLiked}`);
+      const updatedList = [...this.data.videoList];
+      updatedList[currentIndex].isLiked = cachedState.isLiked;
+      
+      // 同步点赞数
+      if (cachedState.likeCount !== undefined || cachedState.likes !== undefined) {
+        updatedList[currentIndex].likes = cachedState.likeCount || cachedState.likes || updatedList[currentIndex].likes;
+      }
+      
+      this.setData({
+        videoList: updatedList
+      });
+    }
+    
+    if (cachedState.isCollected !== undefined && cachedState.isCollected !== currentVideo.isCollected) {
+      console.log(`同步视频[${currentVideo.id}]收藏状态: ${currentVideo.isCollected} -> ${cachedState.isCollected}`);
+      const updatedList = [...this.data.videoList];
+      updatedList[currentIndex].isCollected = cachedState.isCollected;
+      
+      this.setData({
+        videoList: updatedList
+      });
+    }
   },
 }); 

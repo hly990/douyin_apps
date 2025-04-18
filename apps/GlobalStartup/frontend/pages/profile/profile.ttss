@@ -174,7 +174,11 @@
 .video-cover-container {
   position: relative;
   width: 100%;
-  height: 320rpx;
+  /* 使用aspect-ratio实现16:9的宽高比 */
+  aspect-ratio: 16/9;
+  /* 备用方案，支持不支持aspect-ratio的设备 */
+  /* height: 0;
+  padding-bottom: 56.25%; */ /* 9/16 = 0.5625 = 56.25% */
   border-radius: 8rpx;
   overflow: hidden;
 }
@@ -183,6 +187,7 @@
   width: 100%;
   height: 100%;
   background-color: #eee;
+  object-fit: cover; /* 确保图片正确裁剪以填满容器 */
 }
 
 .video-duration {
