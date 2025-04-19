@@ -500,9 +500,9 @@ Page({
       videoStateManager.setVideoCollectStatus(videoId, true, video);
     }
     
-    // 导航到视频详情
+    // 导航到视频详情，添加from=profile参数标记来源
     tt.navigateTo({
-      url: `/pages/videoDetail/videoDetail?id=${videoId}`
+      url: `/pages/videoDetail/videoDetail?id=${videoId}&from=profile`
     });
   },
   

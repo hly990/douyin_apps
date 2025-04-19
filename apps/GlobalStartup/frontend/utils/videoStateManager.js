@@ -209,29 +209,41 @@ function setVideoLikeStatus(videoId, isLiked, videoData = null) {
  * @param {boolean} isCollected - 收藏状态
  * @param {Object} videoData - 完整视频数据（可选）
  */
-function setVideoCollectStatus(videoId, isCollected, videoData = null) {
-  // 确保isCollected是布尔值
-  const collectedStatus = isCollected === true;
-  
-  // 获取当前完整数据，包括所有现有状态
-  const currentData = getVideoState(videoId) || videoData || { id: videoId };
-  
-  // 如果状态没有变化，则不更新
-  if (currentData.isCollected === collectedStatus) {
-    console.log(`收藏状态未变更，跳过更新: ID=${videoId}, isCollected=${collectedStatus}`);
-    return;
+function setVideoCollectStatus(videoId, isCollected, videoData = {}) {
+  try {
+    console.log('设置视频收藏状态:', {videoId, isCollected});
+    
+    // 确保布尔值正确
+    isCollected = isCollected === true;
+    
+    // 获取现有的完整视频状态，如果存在的话
+    const existingState = getVideoState(videoId) || {};
+    console.log('更新收藏状态前的现有状态:', existingState);
+    
+    // 合并现有状态与新提供的数据，确保我们不会丢失任何状态
+    const combinedVideoData = {
+      ...existingState,
+      ...videoData,
+      isCollected: isCollected
+    };
+    
+    // 确保我们保留现有的点赞状态和点赞数
+    console.log('更新收藏时的点赞状态:', {
+      isLiked: combinedVideoData.isLiked,
+      likes: combinedVideoData.likes
+    });
+    
+    // 保存整合后的状态
+    saveVideoState(videoId, combinedVideoData);
+    
+    // 通知订阅者
+    notifyStateChange(videoId, combinedVideoData);
+    
+    return true;
+  } catch (error) {
+    console.error('设置视频收藏状态失败:', error);
+    return false;
   }
-  
-  console.log(`设置视频收藏状态: ID=${videoId}, isCollected=${collectedStatus}, 当前点赞状态=${currentData.isLiked}, 点赞数=${currentData.likes || 0}`);
-  
-  // 创建更新后的数据，只修改isCollected字段，保留其他所有字段（特别是isLiked和likes）
-  const updatedData = {
-    ...currentData,
-    isCollected: collectedStatus
-  };
-  
-  console.log(`更新后的数据: isCollected=${updatedData.isCollected}, 保留点赞状态=${updatedData.isLiked}, 点赞数=${updatedData.likes || 0}`);
-  saveVideoState(videoId, updatedData);
 }
 
 /**
