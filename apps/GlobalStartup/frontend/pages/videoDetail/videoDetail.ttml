@@ -20,7 +20,7 @@
     <video 
       id="mainVideo"
       class="main-video"
-      src="{{videoData.url}}"
+      src="{{videoData.videoUrl}}"
       loop="{{true}}"
       autoplay="{{true}}"
       object-fit="cover"
