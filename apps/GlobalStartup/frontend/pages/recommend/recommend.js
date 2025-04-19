@@ -769,8 +769,8 @@ Page({
       needUpdate = true;
       
       // 同步点赞数
-      if (cachedState.likeCount !== undefined || cachedState.likes !== undefined) {
-        updatedList[currentIndex].likes = cachedState.likeCount || cachedState.likes || updatedList[currentIndex].likes;
+      if (cachedState.likes !== undefined) {
+        updatedList[currentIndex].likes = cachedState.likes || updatedList[currentIndex].likes;
       }
     }
     

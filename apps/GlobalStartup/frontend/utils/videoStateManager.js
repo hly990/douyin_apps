@@ -24,22 +24,34 @@ function saveVideoState(videoId, videoData, notifySubscribers = true) {
     console.error('保存视频状态失败: 缺少ID或数据');
     return;
   }
+  
+  // 确保布尔值字段是真正的布尔值
+  const normalizedData = {
+    ...videoData,
+    isLiked: videoData.isLiked === true,
+    isCollected: videoData.isCollected === true,
+    likes: videoData.likes || 0
+  };
 
   // 1. 保存单个视频状态
   const stateKey = getVideoStateKey(videoId);
   try {
-    tt.setStorageSync(stateKey, videoData);
-    console.log(`保存视频状态成功: ID=${videoId}`);
+    tt.setStorageSync(stateKey, normalizedData);
+    console.log(`保存视频状态成功: ID=${videoId}`, {
+      isLiked: normalizedData.isLiked,
+      isCollected: normalizedData.isCollected,
+      likes: normalizedData.likes
+    });
   } catch (err) {
     console.error(`保存视频状态失败: ID=${videoId}`, err);
   }
 
   // 2. 更新视频列表缓存中的状态
-  updateVideoInList(videoId, videoData);
+  updateVideoInList(videoId, normalizedData);
 
   // 3. 通知订阅者
   if (notifySubscribers) {
-    notifyStateChange(videoId, videoData);
+    notifyStateChange(videoId, normalizedData);
   }
 }
 
@@ -79,10 +91,9 @@ function updateVideoInList(videoId, videoData) {
         // 只更新状态相关字段，保留其他字段
         return {
           ...video,
-          isLiked: videoData.isLiked,
-          isCollected: videoData.isCollected,
-          likes: videoData.likeCount || videoData.likes || video.likes,
-          likeCount: videoData.likeCount || videoData.likes || video.likeCount
+          isLiked: videoData.isLiked === true,
+          isCollected: videoData.isCollected === true,
+          likes: videoData.likes || video.likes || 0
         };
       }
       return video;
@@ -166,15 +177,29 @@ function subscribe(type, videoId, callback) {
  * @param {Object} videoData - 完整视频数据（可选）
  */
 function setVideoLikeStatus(videoId, isLiked, videoData = null) {
+  // 确保isLiked是布尔值
+  const likedStatus = isLiked === true;
+  
+  // 获取当前数据
   const currentData = videoData || getVideoState(videoId) || { id: videoId };
+  
+  // 如果状态没有变化，则不更新
+  if (currentData.isLiked === likedStatus) {
+    console.log(`点赞状态未变更，跳过更新: ID=${videoId}, isLiked=${likedStatus}`);
+    return;
+  }
+  
+  console.log(`设置视频点赞状态: ID=${videoId}, isLiked=${likedStatus}, 当前likes=${currentData.likes || 0}`);
+  
   const updatedData = {
     ...currentData,
-    isLiked: isLiked,
-    likeCount: isLiked 
-      ? (currentData.likeCount || 0) + 1 
-      : Math.max(0, (currentData.likeCount || 0) - 1)
+    isLiked: likedStatus,
+    likes: likedStatus 
+      ? (currentData.likes || 0) + 1 
+      : Math.max(0, (currentData.likes || 0) - 1)
   };
   
+  console.log(`更新后的数据: isLiked=${updatedData.isLiked}, likes=${updatedData.likes}`);
   saveVideoState(videoId, updatedData);
 }
 
@@ -185,12 +210,27 @@ function setVideoLikeStatus(videoId, isLiked, videoData = null) {
  * @param {Object} videoData - 完整视频数据（可选）
  */
 function setVideoCollectStatus(videoId, isCollected, videoData = null) {
-  const currentData = videoData || getVideoState(videoId) || { id: videoId };
+  // 确保isCollected是布尔值
+  const collectedStatus = isCollected === true;
+  
+  // 获取当前完整数据，包括所有现有状态
+  const currentData = getVideoState(videoId) || videoData || { id: videoId };
+  
+  // 如果状态没有变化，则不更新
+  if (currentData.isCollected === collectedStatus) {
+    console.log(`收藏状态未变更，跳过更新: ID=${videoId}, isCollected=${collectedStatus}`);
+    return;
+  }
+  
+  console.log(`设置视频收藏状态: ID=${videoId}, isCollected=${collectedStatus}, 当前点赞状态=${currentData.isLiked}, 点赞数=${currentData.likes || 0}`);
+  
+  // 创建更新后的数据，只修改isCollected字段，保留其他所有字段（特别是isLiked和likes）
   const updatedData = {
     ...currentData,
-    isCollected: isCollected
+    isCollected: collectedStatus
   };
   
+  console.log(`更新后的数据: isCollected=${updatedData.isCollected}, 保留点赞状态=${updatedData.isLiked}, 点赞数=${updatedData.likes || 0}`);
   saveVideoState(videoId, updatedData);
 }
 

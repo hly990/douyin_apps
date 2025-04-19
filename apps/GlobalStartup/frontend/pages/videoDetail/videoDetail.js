@@ -22,11 +22,11 @@ Page({
     isLiked: false,
     isCollected: false,
     isFollowing: false,
-    isPlaying: true,
+    isPlaying: false,
     loading: true,
     showCommentPanel: false,  // 是否显示评论面板
     showRelatedPanel: false,    // 是否显示相关视频面板
-    statusBarHeight: 0,      // 状态栏高度
+    statusBarHeight: 20,      // 状态栏高度
     navBarHeight: 88,       // 导航栏高度
     videoHeight: 0,          // 视频播放器高度
     windowWidth: 0,          // 窗口宽度
@@ -39,11 +39,11 @@ Page({
     startY: 0,
     moveX: 0,
     moveY: 0,
-    videoId: '',
+    videoId: null,
     isIOS: false,
     isFromCollection: false,
     isFullscreen: true,  // 添加全屏状态标记
-    likeCount: 0,
+    likes: 0,
     videoContext: null,
     showError: false,     // 是否显示错误提示
     errorInfo: '',        // 错误信息
@@ -54,6 +54,22 @@ Page({
     replyToName: '',  // 要回复的用户名称
     isCommentFocused: false, // 评论输入框是否聚焦
     isVideoReady: false,  // 视频是否已准备好（可用于控制内容显示的时机）
+    isLoading: true,
+    loadFailed: false,
+    isRelatedLoading: false,
+    commentList: [],
+    isCommentLoading: false,
+    commentContent: '',
+    isCommentInputFocused: false,
+    commentPage: 1,
+    commentTotal: 0,
+    commentHasMore: true,
+    isPlaybackRateVisible: false, // 播放速度选择器是否可见
+    selectedPlaybackRate: 1, // 当前选择的播放速度
+    autoPlay: true, // 自动播放开关
+    isVideoDetailsVisible: false, // 视频详情是否可见
+    descExpanded: false,  // 描述是否展开
+    showTags: false,      // 是否显示标签
   },
 
   onLoad: function (options) {
@@ -110,7 +126,14 @@ Page({
     
     if (cachedData) {
       console.log('从缓存获取视频数据:', cachedData);
-      videoData = { ...cachedData };
+      // 确保包含所有需要的字段
+      videoData = { 
+        ...cachedData,
+        isLiked: cachedData.isLiked === true, // 确保布尔值
+        isCollected: cachedData.isCollected === true, // 确保布尔值
+        likes: cachedData.likes || 0
+      };
+      console.log('处理后的缓存数据:', videoData);
     }
     
     // 尝试从URL参数中解析完整的视频数据
@@ -126,7 +149,8 @@ Page({
           ...parsedData,
           // 如果URL参数中没有收藏/点赞状态但缓存中有，则使用缓存中的状态
           isCollected: parsedData.isCollected !== undefined ? parsedData.isCollected : (videoData?.isCollected || false),
-          isLiked: parsedData.isLiked !== undefined ? parsedData.isLiked : (videoData?.isLiked || false)
+          isLiked: parsedData.isLiked !== undefined ? parsedData.isLiked : (videoData?.isLiked || false),
+          likes: parsedData.likes !== undefined ? parsedData.likes : (videoData?.likes || 0)
         };
         
         // 检查视频URL是否存在
@@ -147,23 +171,36 @@ Page({
     // 设置最终视频数据和状态
     if (videoData) {
       console.log('设置最终视频数据:', videoData);
+      // 确保直接从现有的videoData对象中提取这些状态
+      // 不要使用额外的或运算符(||)，因为这会导致false值被覆盖
+      const isLiked = videoData.isLiked === true;
+      const isCollected = videoData.isCollected === true;
+      const likes = videoData.likes || 0;
+      
       this.setData({
         videoData: videoData,
         videoId: videoData.id,
-        // 确保始终从videoData中提取状态
-        isLiked: videoData.isLiked || false,
-        isCollected: videoData.isCollected || false,
-        likeCount: videoData.likes || 0,
+        isLiked: isLiked,
+        isCollected: isCollected,
+        likes: likes,
         isLoading: false,
         loadFailed: false
       }, () => {
         console.log('视频数据已设置:', this.data.videoData);
         console.log('收藏状态:', this.data.isCollected);
         console.log('点赞状态:', this.data.isLiked);
+        console.log('点赞数:', this.data.likes);
         
         // 保存到全局状态管理器
         if (videoData.id) {
-          videoStateManager.saveVideoState(videoData.id, videoData);
+          // 确保保存的对象包含最新的状态
+          const updatedData = {
+            ...videoData,
+            isLiked: isLiked,
+            isCollected: isCollected,
+            likes: likes
+          };
+          videoStateManager.saveVideoState(videoData.id, updatedData);
         }
       });
       
@@ -216,18 +253,28 @@ Page({
     if (videoData) {
       // 更新点赞数等状态
       this.setData({
-        likeCount: videoData.likes || 0,
+        likes: videoData.likes || 0,
         isFullscreen: true
       });
     }
   },
 
   onUnload: function() {
-    // 在页面卸载时保存当前视频的状态到本地缓存
-    const { videoId, videoData } = this.data;
+    // 在页面卸载时，确保videoData中包含最新的状态
+    const { videoId, videoData, isLiked, isCollected, likes } = this.data;
     if (videoId && videoData) {
-      console.log('保存视频状态到本地缓存:', videoData);
-      tt.setStorageSync(`video_state_${videoId}`, videoData);
+      // 确保保存的状态是最新的
+      const updatedData = {
+        ...videoData,
+        isLiked: isLiked,
+        isCollected: isCollected,
+        likes: likes
+      };
+      
+      console.log('保存视频状态到本地缓存:', updatedData);
+      
+      // 使用全局状态管理器保存
+      videoStateManager.saveVideoState(videoId, updatedData);
     }
     
     // 页面卸载时，重置当前加载的视频ID
@@ -239,10 +286,6 @@ Page({
       this.videoContext.stop();
     }
     console.log('页面卸载，停止视频播放');
-
-    if (this.data.videoData && this.data.videoId) {
-      videoStateManager.saveVideoState(this.data.videoId, this.data.videoData);
-    }
   },
 
   onShow: function() {
@@ -408,27 +451,48 @@ Page({
       updatedVideoData.isCollected = false;
       
       this.setData({
-        videoData: updatedVideoData
+        videoData: updatedVideoData,
+        isLiked: false,
+        isCollected: false
       });
+      
+      // 使用全局状态管理器更新状态
+      videoStateManager.saveVideoState(videoId, updatedVideoData);
       return;
     }
     
     try {
+      // 先从全局状态管理器获取当前状态
+      const currentState = videoStateManager.getVideoState(videoId) || {};
+      console.log('检查状态前的缓存状态:', currentState);
+      
       // 点赞状态检查
       api.checkVideoLike({
         videoId: videoId,
         success: (res) => {
           if (res.code === 0 && res.data) {
+            console.log('API返回的点赞状态:', res.data);
+            const liked = res.data.liked === true; // 确保是布尔值
+            
             // 更新videoData中的状态
             const updatedVideoData = {...this.data.videoData};
-            updatedVideoData.isLiked = res.data.liked;
+            updatedVideoData.isLiked = liked;
             
             this.setData({
-              videoData: updatedVideoData
+              videoData: updatedVideoData,
+              isLiked: liked
             });
             
-            // 使用全局状态管理器更新状态
-            videoStateManager.saveVideoState(videoId, updatedVideoData);
+            // 更新全局状态管理器中的数据，但不覆盖其他字段
+            const cachedState = videoStateManager.getVideoState(videoId) || {};
+            const updatedState = {
+              ...cachedState,
+              ...updatedVideoData,
+              isLiked: liked
+            };
+            
+            console.log('更新后的点赞状态:', updatedState);
+            videoStateManager.saveVideoState(videoId, updatedState);
           }
         },
         fail: (err) => {
@@ -442,16 +506,28 @@ Page({
         videoId: videoId,
         success: (res) => {
           if (res.code === 0 && res.data) {
+            console.log('API返回的收藏状态:', res.data);
+            const collected = res.data.collected === true; // 确保是布尔值
+            
             // 更新videoData中的状态
             const updatedVideoData = {...this.data.videoData};
-            updatedVideoData.isCollected = res.data.collected;
+            updatedVideoData.isCollected = collected;
             
             this.setData({
-              videoData: updatedVideoData
+              videoData: updatedVideoData,
+              isCollected: collected
             });
             
-            // 使用全局状态管理器更新状态
-            videoStateManager.saveVideoState(videoId, updatedVideoData);
+            // 更新全局状态管理器中的数据，但不覆盖其他字段
+            const cachedState = videoStateManager.getVideoState(videoId) || {};
+            const updatedState = {
+              ...cachedState,
+              ...updatedVideoData, 
+              isCollected: collected
+            };
+            
+            console.log('更新后的收藏状态:', updatedState);
+            videoStateManager.saveVideoState(videoId, updatedState);
           }
         },
         fail: (err) => {
@@ -469,25 +545,20 @@ Page({
   // 更新缓存中的视频点赞状态
   updateCachedVideoLikeStatus: function(videoId, isLiked) {
     try {
-      // 从本地缓存获取视频列表
-      const cachedVideoList = tt.getStorageSync('videoList') || [];
-      if (cachedVideoList.length > 0) {
-        // 查找并更新缓存中的视频
-        const updatedList = cachedVideoList.map(video => {
-          if (video.id == videoId) {
-            return {
-              ...video,
-              isLiked: isLiked,
-              likes: isLiked ? (video.likes || 0) + 1 : Math.max(0, (video.likes || 0) - 1)
-            };
-          }
-          return video;
-        });
-        
-        // 保存更新后的列表
-        tt.setStorageSync('videoList', updatedList);
-        console.log('已更新缓存中的视频点赞状态');
-      }
+      // 使用videoStateManager获取当前缓存状态
+      const cachedState = videoStateManager.getVideoState(videoId);
+      if (!cachedState) return;
+      
+      // 更新点赞状态
+      const updatedData = {
+        ...cachedState,
+        isLiked: isLiked,
+        likes: isLiked ? (cachedState.likes || 0) + 1 : Math.max(0, (cachedState.likes || 0) - 1)
+      };
+      
+      // 使用状态管理器保存，确保全局状态一致
+      videoStateManager.saveVideoState(videoId, updatedData);
+      console.log('已更新缓存中的视频点赞状态');
     } catch (e) {
       console.error('更新缓存中的视频点赞状态失败:', e);
     }
@@ -496,24 +567,19 @@ Page({
   // 更新缓存中的视频收藏状态
   updateCachedVideoCollectStatus: function(videoId, isCollected) {
     try {
-      // 从本地缓存获取视频列表
-      const cachedVideoList = tt.getStorageSync('videoList') || [];
-      if (cachedVideoList.length > 0) {
-        // 查找并更新缓存中的视频
-        const updatedList = cachedVideoList.map(video => {
-          if (video.id == videoId) {
-            return {
-              ...video,
-              isCollected: isCollected
-            };
-          }
-          return video;
-        });
-        
-        // 保存更新后的列表
-        tt.setStorageSync('videoList', updatedList);
-        console.log('已更新缓存中的视频收藏状态');
-      }
+      // 使用videoStateManager获取当前缓存状态
+      const cachedState = videoStateManager.getVideoState(videoId);
+      if (!cachedState) return;
+      
+      // 更新收藏状态
+      const updatedData = {
+        ...cachedState,
+        isCollected: isCollected
+      };
+      
+      // 使用状态管理器保存，确保全局状态一致
+      videoStateManager.saveVideoState(videoId, updatedData);
+      console.log('已更新缓存中的视频收藏状态');
     } catch (e) {
       console.error('更新缓存中的视频收藏状态失败:', e);
     }
@@ -1188,17 +1254,19 @@ Page({
     
     const videoId = this.data.videoId;
     const isLiked = this.data.videoData.isLiked;
-    const likeCount = this.data.videoData.likeCount || 0;
+    const likes = this.data.videoData.likes || 0;
     
     console.log(`尝试${isLiked ? '取消点赞' : '点赞'}视频: ID=${videoId}`);
     
     // 乐观更新UI
     const updatedVideoData = {...this.data.videoData};
     updatedVideoData.isLiked = !isLiked;
-    updatedVideoData.likeCount = isLiked ? Math.max(0, likeCount - 1) : likeCount + 1;
+    updatedVideoData.likes = isLiked ? Math.max(0, likes - 1) : likes + 1;
     
     this.setData({
-      videoData: updatedVideoData
+      videoData: updatedVideoData,
+      isLiked: !isLiked,
+      likes: updatedVideoData.likes
     });
     
     // 使用全局状态管理器更新状态
@@ -1224,10 +1292,12 @@ Page({
           if (liked !== this.data.videoData.isLiked) {
             const updatedData = {...this.data.videoData};
             updatedData.isLiked = liked;
-            updatedData.likeCount = liked ? (likeCount + 1) : Math.max(0, likeCount - 1);
+            updatedData.likes = liked ? (likes + 1) : Math.max(0, likes - 1);
             
             this.setData({
-              videoData: updatedData
+              videoData: updatedData,
+              isLiked: liked,
+              likes: updatedData.likes
             });
             
             // 使用全局状态管理器更新状态
@@ -1240,10 +1310,12 @@ Page({
         // 操作失败，恢复原状态
         const updatedData = {...this.data.videoData};
         updatedData.isLiked = isLiked;
-        updatedData.likeCount = isLiked ? (likeCount + 1) : Math.max(0, likeCount - 1);
+        updatedData.likes = isLiked ? (likes + 1) : Math.max(0, likes - 1);
         
         this.setData({
-          videoData: updatedData
+          videoData: updatedData,
+          isLiked: isLiked,
+          likes: updatedData.likes
         });
         
         // 恢复全局状态
@@ -1271,7 +1343,8 @@ Page({
     updatedVideoData.isCollected = !isCollected;
     
     this.setData({
-      videoData: updatedVideoData
+      videoData: updatedVideoData,
+      isCollected: !isCollected
     });
     
     // 使用全局状态管理器更新状态
@@ -1299,7 +1372,8 @@ Page({
             updatedData.isCollected = collected;
             
             this.setData({
-              videoData: updatedData
+              videoData: updatedData,
+              isCollected: collected
             });
             
             // 使用全局状态管理器更新状态
@@ -1314,7 +1388,8 @@ Page({
         updatedData.isCollected = isCollected;
         
         this.setData({
-          videoData: updatedData
+          videoData: updatedData,
+          isCollected: isCollected
         });
         
         // 恢复全局状态

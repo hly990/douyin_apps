@@ -48,7 +48,7 @@
   <view class="interaction-bar">
     <view class="action-item" bindtap="likeVideo">
       <view class="action-icon">{{isLiked ? '❤️' : '♡'}}</view>
-      <view class="action-text">{{videoData.likeCount || 0}}</view>
+      <view class="action-text">{{videoData.likes || 0}}</view>
     </view>
     <view class="action-item" bindtap="collectVideo">
       <view class="action-icon">{{isCollected ? '★' : '☆'}}</view>
@@ -77,7 +77,7 @@
           <view class="comment-actions">
             <view class="comment-time">{{utils.formatDate(item.createTime)}}</view>
             <view class="comment-like" bindtap="likeComment" data-id="{{item.id}}">
-              {{item.isLiked ? '❤️' : '♡'}} {{item.likeCount}}
+              {{item.isLiked ? '❤️' : '♡'}} {{item.likes}}
             </view>
             <view class="comment-reply" bindtap="replyComment" data-id="{{item.id}}" data-name="{{item.user.nickname}}">
               回复
@@ -111,7 +111,7 @@
         <view class="related-video-title">{{item.title}}</view>
         <view class="related-video-author">{{item.author.nickname}}</view>
         <view class="related-video-stats">
-          {{item.playCount || 0}} 次播放 · {{item.likeCount || 0}} 点赞
+          {{item.playCount || 0}} 次播放 · {{item.likes || 0}} 点赞
         </view>
       </view>
     </view>

@@ -26,7 +26,7 @@
             
             <view class="video-stats">
               <text class="stat-item">{{item.playCount || 0}} 播放</text>
-              <text class="stat-item">{{item.likeCount || 0}} 赞</text>
+              <text class="stat-item">{{item.likes || 0}} 赞</text>
             </view>
           </view>
           
