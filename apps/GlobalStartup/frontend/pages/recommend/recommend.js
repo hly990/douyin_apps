@@ -141,11 +141,29 @@ Page({
           
           console.log('处理后的视频列表:', processedVideos);
           
+          // 从缓存中同步视频状态（如收藏状态）
+          const syncedVideos = processedVideos.map(video => {
+            // 尝试从全局状态管理器获取该视频的状态
+            const cachedState = videoStateManager.getVideoState(video.id);
+            if (cachedState) {
+              // 优先使用缓存中的收藏和点赞状态
+              return {
+                ...video,
+                isLiked: cachedState.isLiked !== undefined ? cachedState.isLiked : video.isLiked,
+                isCollected: cachedState.isCollected !== undefined ? cachedState.isCollected : video.isCollected,
+                likes: cachedState.likes || video.likes
+              };
+            }
+            return video;
+          });
+          
+          console.log('同步状态后的视频列表:', syncedVideos);
+          
           let finalVideos = [];
           
           if(isRefresh) {
             // 下拉刷新，重置列表
-            finalVideos = processedVideos;
+            finalVideos = syncedVideos;
             this.setData({
               videoList: finalVideos,
               currentIndex: 0,
@@ -159,7 +177,7 @@ Page({
             tt.stopPullDownRefresh();
           } else {
             // 上拉加载更多
-            finalVideos = [...this.data.videoList, ...processedVideos];
+            finalVideos = [...this.data.videoList, ...syncedVideos];
             this.setData({
               videoList: finalVideos,
               isLoading: false,
@@ -622,7 +640,8 @@ Page({
   collectVideo: function(e) {
     const videoId = e.currentTarget.dataset.id;
     const index = e.currentTarget.dataset.index;
-    const isCollected = this.data.videoList[index].isCollected;
+    const currentVideo = this.data.videoList[index];
+    const isCollected = currentVideo.isCollected;
     
     console.log(`尝试${isCollected ? '取消收藏' : '收藏'}视频: ID=${videoId}, 索引=${index}`);
     
@@ -739,30 +758,36 @@ Page({
     const cachedState = videoStateManager.getVideoState(currentVideo.id);
     if (!cachedState) return;
     
+    // 创建视频状态的更新标志
+    let needUpdate = false;
+    const updatedList = [...this.data.videoList];
+    
     // 只更新需要同步的状态字段
     if (cachedState.isLiked !== undefined && cachedState.isLiked !== currentVideo.isLiked) {
       console.log(`同步视频[${currentVideo.id}]点赞状态: ${currentVideo.isLiked} -> ${cachedState.isLiked}`);
-      const updatedList = [...this.data.videoList];
       updatedList[currentIndex].isLiked = cachedState.isLiked;
+      needUpdate = true;
       
       // 同步点赞数
       if (cachedState.likeCount !== undefined || cachedState.likes !== undefined) {
         updatedList[currentIndex].likes = cachedState.likeCount || cachedState.likes || updatedList[currentIndex].likes;
       }
-      
-      this.setData({
-        videoList: updatedList
-      });
     }
     
     if (cachedState.isCollected !== undefined && cachedState.isCollected !== currentVideo.isCollected) {
       console.log(`同步视频[${currentVideo.id}]收藏状态: ${currentVideo.isCollected} -> ${cachedState.isCollected}`);
-      const updatedList = [...this.data.videoList];
       updatedList[currentIndex].isCollected = cachedState.isCollected;
-      
+      needUpdate = true;
+    }
+    
+    // 只有在状态发生变化时才更新数据
+    if (needUpdate) {
       this.setData({
         videoList: updatedList
       });
+      
+      // 保存到全局状态管理器以确保状态一致性
+      videoStateManager.saveVideoState(currentVideo.id, updatedList[currentIndex]);
     }
   },
 }); 
