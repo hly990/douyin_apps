@@ -5,7 +5,7 @@
   <!-- 顶部导航栏 -->
   <view class="nav-bar" style="height:{{navBarHeight}}rpx; padding-top:{{statusBarHeight}}px;">
     <view class="nav-bar-content">
-      <view class="nav-bar-left" bindtap="navigateBack">
+      <view class="nav-bar-left" bindtap="handleBack">
         <view class="nav-back-icon">←</view>
       </view>
       <text class="nav-title">视频详情</text>

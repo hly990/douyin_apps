@@ -346,22 +346,10 @@ module.exports = createCoreController('api::user.user', ({ strapi }) => ({
       }
       
       console.log('查询用户ID:', userId);
-      const user = await strapi.db.query('api::user.user').findOne({
+      
+      // 直接从users-permissions用户模型查询
+      const user = await strapi.db.query('plugin::users-permissions.user').findOne({
         where: { id: userId },
-        populate: {
-          followers: {
-            select: ['id'],
-          },
-          following: {
-            select: ['id'],
-          },
-          likes: {
-            select: ['id'],
-          },
-          collections: {
-            select: ['id'],
-          },
-        },
       });
       
       if (!user) {
@@ -369,40 +357,30 @@ module.exports = createCoreController('api::user.user', ({ strapi }) => ({
         return ctx.notFound('用户不存在');
       }
       
-      console.log('找到用户数据:', user.id, user.username);
+      console.log('在users-permissions找到用户:', user.id, user.username);
+      
+      // 创建适配前端所需格式的用户对象
+      const formattedUser = {
+        id: user.id,
+        username: user.username,
+        nickname: user.username, // 使用username作为默认nickname
+        email: user.email,
+        avatarUrl: user.avatarUrl || 'https://via.placeholder.com/150',
+        // 统计信息，如果users-permissions用户没有这些关联，提供默认值
+        stats: {
+          followingCount: 0,
+          followersCount: 0,
+          likesCount: 0,
+          collectionsCount: 0
+        }
+      };
       
       // 去除敏感信息
-      // 创建安全的用户对象 - 避免暴露敏感字段
-      let sanitizedUser = { ...user };
+      delete formattedUser.password;
+      delete formattedUser.resetPasswordToken;
+      delete formattedUser.confirmationToken;
       
-      // 如果sanitize功能存在，则使用它
-      try {
-        if (sanitize && sanitize.contentAPI) {
-          const userModel = strapi.getModel('api::user.user');
-          if (userModel) {
-            sanitizedUser = await sanitize.contentAPI.output(user, userModel);
-          }
-        }
-      } catch (sanitizeError) {
-        console.warn('sanitize功能不可用，使用备用方案:', sanitizeError);
-        // 手动移除敏感字段
-        delete sanitizedUser.password;
-        delete sanitizedUser.resetPasswordToken;
-        delete sanitizedUser.confirmationToken;
-      }
-      
-      // 统计信息
-      const stats = {
-        followersCount: user.followers?.length || 0,
-        followingCount: user.following?.length || 0,
-        likesCount: user.likes?.length || 0,
-        collectionsCount: user.collections?.length || 0,
-      };
-      
-      return {
-        ...sanitizedUser,
-        stats,
-      };
+      return formattedUser;
     } catch (error) {
       console.error('获取用户信息失败:', error);
       return ctx.badRequest('获取用户信息失败', { error: error.message });

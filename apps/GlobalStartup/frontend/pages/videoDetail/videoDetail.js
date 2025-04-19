@@ -109,13 +109,8 @@ Page({
     const cachedData = videoStateManager.getVideoState(videoId);
     
     if (cachedData) {
-      this.setData({ 
-        videoData: cachedData,
-        videoId: videoId,
-        isLiked: cachedData.isLiked,
-        isCollected: cachedData.isCollected 
-      });
-      this.initVideoContext(); // 立即初始化UI
+      console.log('从缓存获取视频数据:', cachedData);
+      videoData = { ...cachedData };
     }
     
     // 尝试从URL参数中解析完整的视频数据
@@ -123,8 +118,16 @@ Page({
       try {
         // 先进行URL解码，再解析JSON
         const decodedData = decodeURIComponent(options.videoData);
-        videoData = JSON.parse(decodedData);
-        console.log('成功解析视频数据:', videoData);
+        const parsedData = JSON.parse(decodedData);
+        console.log('成功解析视频数据:', parsedData);
+        
+        // 合并数据，确保缓存中的状态不会丢失
+        videoData = {
+          ...parsedData,
+          // 如果URL参数中没有收藏/点赞状态但缓存中有，则使用缓存中的状态
+          isCollected: parsedData.isCollected !== undefined ? parsedData.isCollected : (videoData?.isCollected || false),
+          isLiked: parsedData.isLiked !== undefined ? parsedData.isLiked : (videoData?.isLiked || false)
+        };
         
         // 检查视频URL是否存在
         if (!videoData.url) {
@@ -135,35 +138,43 @@ Page({
           });
           return;
         }
-        
-        // 设置视频数据
-        this.setData({
-          videoData: videoData,
-          videoId: videoData.id,
-          isLoading: false,
-          loadFailed: false
-        }, () => {
-          console.log('视频数据已设置:', this.data.videoData);
-          
-          // 保存到本地缓存
-          if (videoData.id) {
-            tt.setStorageSync(`video_state_${videoData.id}`, videoData);
-          }
-        });
-        
-        // 预加载视频
-        this.prepareVideo(videoData.url);
       } catch (error) {
         console.error('解析视频数据失败:', error);
-        // 解析失败时尝试使用id参数
-        if (options.id) {
-          this.setData({
-            videoId: options.id,
-            isLoading: true
-          });
-          this.loadVideoDetail(options.id);
-        }
+        // 解析失败时保留缓存数据
       }
+    }
+    
+    // 设置最终视频数据和状态
+    if (videoData) {
+      console.log('设置最终视频数据:', videoData);
+      this.setData({
+        videoData: videoData,
+        videoId: videoData.id,
+        // 确保始终从videoData中提取状态
+        isLiked: videoData.isLiked || false,
+        isCollected: videoData.isCollected || false,
+        likeCount: videoData.likes || 0,
+        isLoading: false,
+        loadFailed: false
+      }, () => {
+        console.log('视频数据已设置:', this.data.videoData);
+        console.log('收藏状态:', this.data.isCollected);
+        console.log('点赞状态:', this.data.isLiked);
+        
+        // 保存到全局状态管理器
+        if (videoData.id) {
+          videoStateManager.saveVideoState(videoData.id, videoData);
+        }
+      });
+      
+      // 初始化视频上下文
+      this.initVideoContext();
+      
+      // 预加载视频
+      if (videoData.url) {
+        this.prepareVideo(videoData.url);
+      }
+      
       return;
     }
     
@@ -188,6 +199,27 @@ Page({
 
     // 创建视频上下文
     this.videoContext = tt.createVideoContext('mainVideo', this);
+  },
+
+  // 初始化视频上下文方法
+  initVideoContext: function() {
+    // 创建视频上下文对象
+    if (!this.videoContext) {
+      console.log('初始化视频上下文');
+      this.videoContext = tt.createVideoContext('mainVideo', this);
+    } else {
+      console.log('视频上下文已存在');
+    }
+    
+    // 设置视频相关状态
+    const { videoData } = this.data;
+    if (videoData) {
+      // 更新点赞数等状态
+      this.setData({
+        likeCount: videoData.likes || 0,
+        isFullscreen: true
+      });
+    }
   },
 
   onUnload: function() {
@@ -544,6 +576,31 @@ Page({
       url: '/pages/index/index'
     });
   },
+  
+  // 返回上一页
+  handleBack() {
+    // 获取页面栈
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      // 获取上一个页面
+      const prevPage = pages[pages.length - 2];
+      // 如果上一个页面是profile页，则返回profile页
+      if (prevPage.route === 'pages/profile/profile') {
+        tt.navigateBack();
+      } else {
+        // 否则返回首页
+        tt.switchTab({
+          url: '/pages/index/index'
+        });
+      }
+    } else {
+      // 如果没有上一页，则返回首页
+      tt.switchTab({
+        url: '/pages/index/index'
+      });
+    }
+  },
+
   
   // 举报/反馈视频
   reportVideo: function() {

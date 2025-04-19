@@ -105,5 +105,16 @@ module.exports = {
         auth: false
       },
     },
+    // 添加正确路径的端点以匹配前端请求
+    {
+      method: 'GET',
+      path: '/api/user/me',
+      handler: 'user.me',
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 }; 
