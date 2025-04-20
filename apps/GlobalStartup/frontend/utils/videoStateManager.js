@@ -289,21 +289,81 @@ function updateVideoList(videoList) {
  * @param {Array} collectionList - 收藏视频列表
  */
 function syncCollectionList(collectionList) {
-  if (!Array.isArray(collectionList)) return;
+  if (!Array.isArray(collectionList)) {
+    console.error('syncCollectionList: 传入的收藏列表不是数组');
+    return;
+  }
+  
+  console.log(`syncCollectionList: 开始同步收藏列表，共 ${collectionList.length} 个视频`);
+  
+  // 保存所有已处理的视频ID，用于调试
+  const processedIds = [];
   
   // 将每个收藏视频的状态标记为已收藏
-  collectionList.forEach(video => {
-    if (video && video.id) {
-      const currentState = getVideoState(video.id) || { ...video };
-      const updatedState = {
-        ...currentState,
-        isCollected: true
-      };
-      saveVideoState(video.id, updatedState);
+  collectionList.forEach((item, index) => {
+    // 可能的数据结构：
+    // 1. 视频对象本身: {id: "123", title: "视频", ...}
+    // 2. 嵌套结构: {id: "collect-456", video: {id: "123", ...}}
+    
+    // 确定视频ID
+    let videoId = null;
+    let videoData = null;
+    
+    if (item && item.id) {
+      // 检查是否为嵌套结构
+      if (item.video && typeof item.video === 'object' && item.video.id) {
+        videoId = item.video.id;
+        videoData = {
+          ...item.video,
+          isCollected: true,
+          // 保留收藏记录的ID
+          collectionId: item.id,
+          collectedAt: item.createdAt || item.created_at || new Date().toISOString()
+        };
+        console.log(`syncCollectionList: 处理嵌套视频[${index}], 收藏ID=${item.id}, 视频ID=${videoId}`);
+      } else {
+        // 直接是视频对象
+        videoId = item.id;
+        videoData = {
+          ...item,
+          isCollected: true
+        };
+        console.log(`syncCollectionList: 处理普通视频[${index}], 视频ID=${videoId}`);
+      }
+      
+      if (videoId) {
+        // 获取现有状态
+        const currentState = getVideoState(videoId) || {};
+        
+        // 合并状态，确保保留点赞状态
+        const updatedState = {
+          ...currentState,
+          ...videoData,
+          // 强制设置收藏状态为true
+          isCollected: true,
+          // 确保保留现有点赞状态和计数
+          isLiked: videoData.isLiked !== undefined ? videoData.isLiked : currentState.isLiked,
+          likes: videoData.likes !== undefined ? videoData.likes : currentState.likes
+        };
+        
+        // 保存状态
+        saveVideoState(videoId, updatedState);
+        processedIds.push(videoId);
+      } else {
+        console.warn(`syncCollectionList: 无法确定视频ID, 跳过项 ${JSON.stringify(item).substring(0, 100)}...`);
+      }
+    } else {
+      console.warn(`syncCollectionList: 第 ${index} 项无效，缺少ID`);
     }
   });
   
-  console.log('同步收藏列表完成, 共同步', collectionList.length, '个视频');
+  // 输出处理结果
+  if (processedIds.length > 0) {
+    console.log(`syncCollectionList: 成功同步 ${processedIds.length} 个视频的收藏状态`);
+    console.log('syncCollectionList: 已处理的视频ID:', processedIds);
+  } else {
+    console.warn('syncCollectionList: 没有有效的视频被同步');
+  }
 }
 
 module.exports = {

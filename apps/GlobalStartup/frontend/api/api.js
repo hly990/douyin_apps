@@ -285,7 +285,8 @@ const collectVideo = (params) => {
       method: 'POST',
       data: {
         collect: params.collect
-      }
+      },
+      header: params.headers || {} // 确保传递认证头
     })
     .then(res => {
       console.log('收藏操作返回结果:', res);
@@ -704,14 +705,21 @@ const getFavoriteVideos = (params) => {
       console.log('获取收藏视频响应:', res);
       if (res && res.data) {
         // 增加日志，输出原始数据的第一条记录
-        if (res.data.length > 0) {
+        if (Array.isArray(res.data) && res.data.length > 0) {
           console.log('API返回的第一条收藏数据结构:', JSON.stringify(res.data[0]).substring(0, 500));
           console.log('API返回的数据长度:', res.data.length);
+        } else {
+          console.log('API返回的数据类型:', typeof res.data, Object.keys(res.data));
         }
         
+        // 处理视频列表，支持两种API返回格式
+        // 1. 如果res.data是数组，每个元素包含video属性（新API格式）
+        // 2. 如果res.data包含videos数组（旧API格式）
+        const videoList = Array.isArray(res.data) ? res.data : (res.data.videos || []);
+        
         // 处理视频列表，确认后端已过滤掉了无效视频
-        const videos = res.data.map(item => {
-          const video = item.video || {};
+        const videos = videoList.map(item => {
+          const video = item.video || item || {};
           
           return {
             id: video.id,

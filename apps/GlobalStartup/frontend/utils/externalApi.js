@@ -181,29 +181,60 @@ const callExternalUrl = async (url, methodOrOptions, data, headers = {}) => {
   // 如果是非公共API，预先验证token
   if (!isPublicAPI && !finalHeaders["Authorization"]) {
     const token = await tokenManager.getToken();
+    console.log(`[DEBUG] 非公共API "${url}"，令牌状态:`, token ? `存在(${token.substring(0, 15)}...)` : '不存在');
+    
+    // 读取本地存储的token
+    let storedToken = '';
+    try {
+      storedToken = tt.getStorageSync('token') || '';
+      console.log(`[DEBUG] 本地存储中的令牌:`, storedToken ? `存在(${storedToken.substring(0, 15)}...)` : '不存在');
+    } catch (e) {
+      console.error('[DEBUG] 读取本地存储令牌失败:', e);
+    }
+    
+    // 比较两个token是否一致
+    if (token && storedToken && token !== storedToken) {
+      console.warn('[DEBUG] 警告: tokenManager.getToken()返回的令牌与本地存储中的令牌不一致!');
+    }
+    
     if (token) {
       try {
         const tokenInfo = parseJwt(token);
         if (tokenInfo) {
           const now = Math.floor(Date.now() / 1000);
-          console.log("令牌用户ID:", tokenInfo.id);
+          console.log("[DEBUG] 令牌用户ID:", tokenInfo.id);
+          console.log("[DEBUG] 令牌签发时间:", new Date(tokenInfo.iat * 1000).toLocaleString());
           const expDate = new Date(tokenInfo.exp * 1000);
-          console.log("令牌过期时间:", expDate.toLocaleString());
-          console.log('距离过期还有(秒):', tokenInfo.exp - now);
+          console.log("[DEBUG] 令牌过期时间:", expDate.toLocaleString());
+          console.log('[DEBUG] 距离过期还有(秒):', tokenInfo.exp - now);
           
+          // 检查过期时间
           if (tokenInfo.exp < now) {
-            // 令牌已过期，直接清除并提示用户
-            console.error('令牌已过期');
+            console.error('[DEBUG] 令牌已过期，清除并提示用户');
             tokenManager.clearToken();
-            throw new Error('认证已过期，请重新登录');
+            // 此处直接添加认证头，但已知会失败
+            finalHeaders["Authorization"] = `Bearer ${token}`;
+            console.log('[DEBUG] 添加已过期的认证头，将导致API调用失败');
+          } else {
+            // 令牌有效，添加认证头
+            finalHeaders["Authorization"] = `Bearer ${token}`;
+            console.log('[DEBUG] 添加有效的认证头');
           }
+        } else {
+          console.error('[DEBUG] 令牌解析失败，无法获取令牌信息');
+          finalHeaders["Authorization"] = `Bearer ${token}`;
         }
       } catch (e) {
-        console.error('令牌验证失败:', e);
+        console.error('[DEBUG] 令牌验证失败:', e);
+        finalHeaders["Authorization"] = `Bearer ${token}`;
       }
     } else if (!isPublicAPI) {
-      console.log("需要认证的API但未找到令牌:", url);
+      console.warn("[DEBUG] 需要认证的API但未找到令牌:", url);
     }
+  } else if (finalHeaders["Authorization"]) {
+    console.log('[DEBUG] 请求已包含认证头');
+  } else if (isPublicAPI) {
+    console.log('[DEBUG] 公共API无需认证');
   }
   
   // 处理查询参数，如果是GET请求，将data转换为URL参数

@@ -337,7 +337,7 @@ Page({
   
   // 获取收藏视频列表
   getFavoriteVideos: function (loadMore = false) {
-    console.log('getFavoriteVideos: 开始加载收藏视频');
+    console.log('======== 开始获取收藏视频 ========');
     
     // 强制检查登录状态
     let isUserLoggedIn = false;
@@ -351,7 +351,7 @@ Page({
       try {
         const token = tt.getStorageSync('token');
         if (token) {
-          console.log('本地存储有token，认为已登录');
+          console.log('本地存储有token，认为已登录. Token前15位:', token.substring(0, 15));
           isUserLoggedIn = true;
           
           // 更新页面状态
@@ -371,78 +371,202 @@ Page({
     }
     
     if (!isUserLoggedIn) {
-      console.log('getFavoriteVideos: 用户未登录，不加载收藏视频');
-      this.setData({ loading: false });
+      console.log('用户未登录，不加载收藏视频，请先登录');
+      this.setData({ 
+        loading: false,
+        videos: [] // 确保设置为空数组，显示空白界面或提示
+      });
       return;
     }
     
-    console.log('getFavoriteVideos: 用户已登录，开始加载收藏');
+    console.log('用户已登录，开始加载收藏');
     this.setData({
       loading: true
     });
 
-    // 使用真实API获取收藏列表
-    api.getFavoriteVideos({
+    // 调用API前打印认证状态
+    try {
+      const token = tt.getStorageSync('token');
+      console.log('调用API前的token状态: ', token ? `存在(${token.substring(0,15)}...)` : '不存在');
+    } catch (e) {
+      console.error('检查token失败:', e);
+    }
+
+    // 尝试直接使用toggleVideoCollection API的实现方式，可能更稳定
+    const page = this;
+    const apiUrl = `${require('../../config').apiBaseUrl}video-collections/user`;
+    console.log('请求URL:', apiUrl);
+    
+    // 获取认证令牌，手动添加到请求中
+    const token = tt.getStorageSync('token') || '';
+    
+    // 准备认证头 - 确保格式正确为 "Bearer token"
+    const authHeader = token ? { "Authorization": `Bearer ${token}` } : {};
+    console.log('使用认证头:', authHeader['Authorization'] ? '是' : '否');
+    
+    // 记录详细的请求信息
+    console.log('请求方法: GET');
+    console.log('请求参数:', {
       page: loadMore ? this.data.favoritesPage : 1,
-      pageSize: this.data.pageSize,
-      success: (res) => {
-        if (res.code === 0 && res.data) {
-          const videoList = res.data.videos || [];
-          const pagination = res.data.pagination || {};
+      pageSize: this.data.pageSize
+    });
+    console.log('请求头:', JSON.stringify(authHeader));
+    
+    require('../../utils/externalApi').callUrl(apiUrl, {
+      method: 'GET',
+      data: {
+        page: loadMore ? this.data.favoritesPage : 1,
+        pageSize: this.data.pageSize
+      },
+      header: authHeader
+    })
+    .then(res => {
+      console.log('收藏视频API响应状态:', res.statusCode);
+      console.log('收藏视频API响应头:', JSON.stringify(res.header));
+      console.log('收藏视频API原始响应:', JSON.stringify(res).substring(0, 200) + '...');
+      
+      if (res && res.data) {
+        // 支持两种API返回格式：
+        // 1. 旧格式：res.data.videos 数组
+        // 2. 新格式：res.data 直接是数组
+        let videoList = [];
+        let pagination = {};
+        
+        if (Array.isArray(res.data)) {
+          console.log('API返回数组格式数据，长度:', res.data.length);
+          videoList = res.data;
+          pagination = res.meta?.pagination || {};
+        } else if (res.data.videos) {
+          console.log('API返回嵌套格式数据，长度:', res.data.videos.length);
+          videoList = res.data.videos || [];
+          pagination = res.data.pagination || {};
+        } else if (typeof res.data === 'object') {
+          // 如果是对象但不符合已知结构，尝试遍历找到视频数组
+          console.log('API返回未知对象结构，尝试解析:', Object.keys(res.data));
           
-          console.log('获取收藏视频成功:', videoList.length, '条记录');
-          
-          // 使用状态管理器同步收藏列表
-          videoStateManager.syncCollectionList(videoList);
-          
-          if (videoList.length > 0) {
-            console.log('第一个视频示例:', JSON.stringify(videoList[0]));
+          // 尝试查找可能包含视频的数组
+          for (const key in res.data) {
+            if (Array.isArray(res.data[key])) {
+              console.log(`找到可能的视频数组: ${key}, 长度:`, res.data[key].length);
+              videoList = res.data[key];
+              break;
+            }
           }
           
-          if (loadMore) {
-            // 加载更多模式，追加数据
-            this.setData({
-              videos: [...this.data.videos, ...videoList],
-              favoritesPage: this.data.favoritesPage + 1,
-              hasMoreFavorites: pagination.hasMore || false,
-              loading: false
-            });
-          } else {
-            // 首次加载，替换数据
-            this.setData({
-              videos: videoList,
-              favoritesPage: 2, // 下一页从2开始
-              hasMoreFavorites: pagination.hasMore || false,
-              loading: false
-            });
+          // 如果还是没找到，记录完整响应以便调试
+          if (videoList.length === 0) {
+            console.error('未能从响应中提取视频列表，完整响应:', JSON.stringify(res.data));
           }
         } else {
-          console.error('获取收藏视频失败, 错误响应:', res);
-          this.setData({ 
-            loading: false,
-            videos: [] // 设置为空数组，显示空白界面
-          });
+          console.error('API返回未知格式数据:', res.data);
+          videoList = [];
+        }
+        
+        // 记录第一个元素以便调试
+        if (videoList.length > 0) {
+          console.log('第一个视频元素:', JSON.stringify(videoList[0]));
           
-          // 显示错误提示
+          // 检查关键字段
+          const firstVideo = videoList[0];
+          const hasVideo = firstVideo.video || firstVideo.id;
+          console.log('是否包含视频对象:', !!firstVideo.video);
+          console.log('是否包含ID:', !!firstVideo.id);
+          
+          if (firstVideo.video) {
+            console.log('嵌套视频内容:', JSON.stringify(firstVideo.video).substring(0, 200) + '...');
+          }
+        } else {
+          console.log('没有找到收藏视频');
+        }
+        
+        // 使用视频工具模块处理视频数据
+        const videoUtil = require('../../utils/video');
+        videoList = videoList.map(item => {
+          // 处理不同的数据结构
+          const videoData = item.video || item;
+          console.log('处理视频ID:', videoData.id);
+          return videoUtil.processVideo(videoData);
+        });
+        
+        // 使用状态管理器同步收藏列表
+        const videoStateManager = require('../../utils/videoStateManager');
+        videoStateManager.syncCollectionList(videoList);
+        
+        if (loadMore) {
+          // 加载更多模式，追加数据
+          page.setData({
+            videos: [...page.data.videos, ...videoList],
+            favoritesPage: page.data.favoritesPage + 1,
+            hasMoreFavorites: pagination.hasMore || false,
+            loading: false
+          });
+        } else {
+          // 首次加载，替换数据
+          page.setData({
+            videos: videoList,
+            favoritesPage: 2, // 下一页从2开始
+            hasMoreFavorites: pagination.hasMore || false,
+            loading: false
+          });
+        }
+        
+        console.log(`成功加载${videoList.length}个收藏视频`);
+        
+        // 如果没有视频，显示提示
+        if (videoList.length === 0) {
           tt.showToast({
-            title: res.msg || '获取收藏视频失败',
+            title: '暂无收藏视频',
             icon: 'none'
           });
         }
-      },
-      fail: (err) => {
-        console.error('获取收藏视频请求失败:', err);
-        this.setData({ 
+      } else {
+        console.error('获取收藏视频失败, 响应格式错误:', res);
+        page.setData({ 
           loading: false,
           videos: [] // 设置为空数组，显示空白界面
         });
         
         // 显示错误提示
         tt.showToast({
-          title: '获取收藏视频失败，请重试',
+          title: '获取收藏视频失败',
           icon: 'none'
         });
       }
+    })
+    .catch(err => {
+      console.error('获取收藏视频请求失败:', err);
+      
+      // 尝试刷新登录状态
+      const tokenManager = require('../../utils/tokenManager');
+      if (tokenManager.isTokenExpiringSoon()) {
+        console.log('令牌即将过期，尝试重新登录');
+        tt.showModal({
+          title: '登录已过期',
+          content: '您的登录状态已失效，需要重新登录',
+          confirmText: '去登录',
+          cancelText: '取消',
+          success: (res) => {
+            if (res.confirm) {
+              // 用户确认后清除令牌并跳转到登录页
+              tokenManager.clearToken();
+              tt.navigateTo({
+                url: '/pages/login/login'
+              });
+            }
+          }
+        });
+      }
+      
+      page.setData({ 
+        loading: false,
+        videos: [] // 设置为空数组，显示空白界面
+      });
+      
+      // 显示错误提示
+      tt.showToast({
+        title: '获取收藏视频失败，请重试',
+        icon: 'none'
+      });
     });
   },
   

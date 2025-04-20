@@ -226,6 +226,7 @@ module.exports = createCoreController('api::video.video', ({ strapi }) => ({
     try {
       const { id } = ctx.params;
       const { collect } = ctx.request.body;
+      const userId = ctx.state.user.id;
       
       // 确保ID是有效的
       if (!id) {
@@ -242,7 +243,44 @@ module.exports = createCoreController('api::video.video', ({ strapi }) => ({
         return ctx.notFound(`ID为${videoId}的视频不存在`);
       }
       
-      console.log(`处理视频ID=${videoId}的${collect ? '收藏' : '取消收藏'}操作`);
+      console.log(`处理视频ID=${videoId}的${collect ? '收藏' : '取消收藏'}操作，用户ID=${userId}`);
+      
+      // 查找是否已经存在收藏记录
+      const existingCollection = await strapi.db.query('api::video-collection.video-collection').findOne({
+        where: { 
+          user: userId,
+          video: videoId
+        }
+      });
+      
+      let result;
+      
+      if (collect) {
+        // 收藏操作
+        if (existingCollection) {
+          // 已经收藏过，直接返回
+          console.log(`用户${userId}已经收藏过视频${videoId}`);
+          result = existingCollection;
+        } else {
+          // 创建新的收藏记录
+          console.log(`用户${userId}收藏视频${videoId}`);
+          result = await strapi.entityService.create('api::video-collection.video-collection', {
+            data: {
+              user: userId,
+              video: videoId,
+              collectedAt: new Date().toISOString()
+            }
+          });
+        }
+      } else {
+        // 取消收藏操作
+        if (existingCollection) {
+          // 删除收藏记录
+          console.log(`用户${userId}取消收藏视频${videoId}`);
+          await strapi.entityService.delete('api::video-collection.video-collection', existingCollection.id);
+        }
+        // 如果没有找到记录，则无需操作
+      }
       
       // 收藏操作成功
       return {

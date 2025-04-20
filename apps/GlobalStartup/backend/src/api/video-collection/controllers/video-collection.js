@@ -98,7 +98,7 @@ module.exports = createCoreController('api::video-collection.video-collection', 
           data: {
             user: userId,
             video: videoId,
-            collectedAt: new Date(),
+            collectedAt: new Date().toISOString(),
           },
         });
         return ctx.send({

@@ -102,5 +102,16 @@ module.exports = {
         middlewares: [],
       },
     },
+    // 收藏视频路由 - 需要登录
+    {
+      method: 'POST',
+      path: '/videos/:id/collect',
+      handler: 'video.collectVideo',
+      config: {
+        auth: { name: 'global::auth-jwt' },
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };

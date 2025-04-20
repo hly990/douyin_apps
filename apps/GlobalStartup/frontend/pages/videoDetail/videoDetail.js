@@ -589,7 +589,8 @@ Page({
       });
       
       api.getVideoDetail({
-        videoId: videoId,
+        videoId: videoId, // 添加videoId参数
+        id: videoId,      // 保留id参数以确保兼容性
         defaultData: defaultData, // 传递默认数据作为备选
         success: (res) => {
           // 重置当前加载的视频ID
@@ -2030,10 +2031,15 @@ Page({
       isCollected: !isCollected
     });
     
+    // 获取认证令牌
+    const token = tt.getStorageSync('token');
+    
     // 调用API
     api.collectVideo({
       videoId: videoId,
       collect: !isCollected,
+      // 显式传递授权头
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       success: (res) => {
         if (res.code === 0) {
           console.log('收藏操作成功:', !isCollected ? '已收藏' : '已取消收藏');
@@ -2329,7 +2335,7 @@ Page({
     }
   },
 
-  // 登录按钮点击事件 - 直接从用户点击获取
+  // 处理登录按钮点击
   handleLoginButtonClick: function() {
     console.log('用户点击了登录按钮，直接触发getUserProfile');
     this.setData({ loginBtnLoading: true });
@@ -2392,11 +2398,12 @@ Page({
           if (pendingAction === 'like') {
             this.doLikeOperation();
           } else if (pendingAction === 'collect') {
+            // 确保在令牌保存后执行收藏操作
             this.doCollectOperation();
           }
           // 清除挂起的操作
           this.setData({ pendingAction: null });
-        }, 100);
+        }, 300); // 增加延迟，确保令牌已保存
       })
       .catch(err => {
         console.error('登录失败:', err);
