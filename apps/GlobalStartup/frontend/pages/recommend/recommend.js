@@ -654,7 +654,12 @@ Page({
     });
     
     // 使用全局状态管理器更新状态
-    videoStateManager.setVideoCollectStatus(videoId, !isCollected, videoList[index]);
+    videoStateManager.setVideoCollectStatus(videoId, !isCollected, {
+      ...videoList[index],
+      // 明确传递点赞相关字段，避免丢失
+      isLiked: videoList[index].isLiked,
+      likes: videoList[index].likes
+    });
     
     // 调用API
     api.toggleVideoCollection({
@@ -675,14 +680,24 @@ Page({
             });
             
             // 更新全局状态
-            videoStateManager.setVideoCollectStatus(videoId, collected, updatedList[index]);
+            videoStateManager.setVideoCollectStatus(videoId, collected, {
+              ...updatedList[index],
+              // 明确传递点赞相关字段，避免丢失
+              isLiked: updatedList[index].isLiked,
+              likes: updatedList[index].likes
+            });
           }
         }
       },
       fail: (err) => {
         console.error('切换收藏状态失败:', err);
         // 恢复全局状态
-        videoStateManager.setVideoCollectStatus(videoId, isCollected, videoList[index]);
+        videoStateManager.setVideoCollectStatus(videoId, isCollected, {
+          ...videoList[index],
+          // 明确传递点赞相关字段，避免丢失
+          isLiked: videoList[index].isLiked,
+          likes: videoList[index].likes
+        });
       }
     });
   },

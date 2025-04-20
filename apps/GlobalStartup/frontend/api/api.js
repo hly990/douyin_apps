@@ -1869,7 +1869,8 @@ const checkVideoLike = (params) => {
             code: 0, 
             data: { 
               liked: res.liked,
-              likeId: res.likeId
+              likeId: res.likeId,
+              likes: res.likes
             } 
           });
         }
@@ -1877,7 +1878,8 @@ const checkVideoLike = (params) => {
         return { 
           success: true, 
           liked: res.liked,
-          likeId: res.likeId
+          likeId: res.likeId,
+          likes: res.likes
         };
       } else {
         throw new Error('检查点赞状态响应数据格式错误');

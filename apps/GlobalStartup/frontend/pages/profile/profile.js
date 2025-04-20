@@ -496,8 +496,22 @@ Page({
     // 导航到视频详情页之前，确保视频的收藏状态正确
     const video = this.data.videos[index];
     if (video) {
-      // 确保收藏状态为true
-      videoStateManager.setVideoCollectStatus(videoId, true, video);
+      // 先保存点赞状态和点赞数
+      videoStateManager.setVideoLikeStatus(videoId, video.isLiked === true, {
+        ...video,
+        isLiked: video.isLiked === true,
+        likes: video.likes || 0
+      });
+      
+      // 再保存收藏状态，确保两个状态都被正确设置
+      videoStateManager.setVideoCollectStatus(videoId, true, {
+        ...video,
+        // 明确传递点赞相关字段，即使可能为undefined
+        isLiked: video.isLiked,  
+        likes: video.likes
+      });
+      
+      console.log(`保存视频状态: ID=${videoId}, 点赞=${video.isLiked === true}, 点赞数=${video.likes || 0}, 收藏=true`);
     }
     
     // 导航到视频详情，添加from=profile参数标记来源

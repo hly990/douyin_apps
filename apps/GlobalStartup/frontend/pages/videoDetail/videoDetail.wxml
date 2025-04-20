@@ -48,7 +48,7 @@
   <view class="interaction-bar">
     <view class="action-item" bindtap="likeVideo">
       <view class="action-icon">{{isLiked ? '❤️' : '♡'}}</view>
-      <view class="action-text">{{videoData.likes || 0}}</view>
+      <view class="action-text">{{likes || videoData.likes || 0}}</view>
     </view>
     <view class="action-item" bindtap="collectVideo">
       <view class="action-icon">{{isCollected ? '★' : '☆'}}</view>

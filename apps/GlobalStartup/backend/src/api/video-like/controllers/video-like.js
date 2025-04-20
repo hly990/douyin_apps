@@ -156,7 +156,15 @@ module.exports = createCoreController('api::video-like.video-like', ({ strapi })
         limit: 1
       });
       
+      // 查询视频总点赞数
+      const likesCount = await strapi.entityService.count('api::video-like.video-like', {
+        filters: {
+          video: { id: videoId }
+        }
+      });
+      
       strapi.log.debug(`[视频点赞检查] 查询结果: ${JSON.stringify(entries)}`);
+      strapi.log.info(`[视频点赞检查] 视频${videoId}点赞总数: ${likesCount}`);
       
       const like = entries && entries.length > 0 ? entries[0] : null;
       
@@ -164,7 +172,8 @@ module.exports = createCoreController('api::video-like.video-like', ({ strapi })
       
       return ctx.send({
         liked: !!like,
-        likeId: like ? like.id : null
+        likeId: like ? like.id : null,
+        likes: likesCount
       });
     } catch (error) {
       strapi.log.error(`[视频点赞检查] 错误: ${error.message}`, error);

@@ -180,24 +180,36 @@ function setVideoLikeStatus(videoId, isLiked, videoData = null) {
   // 确保isLiked是布尔值
   const likedStatus = isLiked === true;
   
-  // 获取当前数据
-  const currentData = videoData || getVideoState(videoId) || { id: videoId };
+  // 先获取缓存中的原始状态用于比较
+  const cachedState = getVideoState(videoId) || { id: videoId };
   
-  // 如果状态没有变化，则不更新
-  if (currentData.isLiked === likedStatus) {
-    console.log(`点赞状态未变更，跳过更新: ID=${videoId}, isLiked=${likedStatus}`);
+  // 使用videoData或缓存状态创建更新数据
+  const currentData = videoData || cachedState;
+  
+  // 如果缓存状态没有变化，则不更新
+  if (cachedState.isLiked === likedStatus) {
+    console.log(`点赞状态未变更，跳过更新: ID=${videoId}, isLiked=${likedStatus}, 缓存状态=${cachedState.isLiked}`);
     return;
   }
   
-  console.log(`设置视频点赞状态: ID=${videoId}, isLiked=${likedStatus}, 当前likes=${currentData.likes || 0}`);
+  console.log(`设置视频点赞状态: ID=${videoId}, isLiked=${likedStatus}, 缓存状态=${cachedState.isLiked}, 当前likes=${currentData.likes || 0}`);
   
-  const updatedData = {
+  // 创建要更新的数据
+  let updatedData = {
     ...currentData,
-    isLiked: likedStatus,
-    likes: likedStatus 
-      ? (currentData.likes || 0) + 1 
-      : Math.max(0, (currentData.likes || 0) - 1)
+    isLiked: likedStatus
   };
+  
+  // 如果传入的videoData中指定了likes值，优先使用传入的值
+  if (videoData && videoData.likes !== undefined) {
+    console.log(`使用传入的点赞数: ${videoData.likes}`);
+    updatedData.likes = videoData.likes;
+  } else {
+    // 否则根据点赞状态自动计算点赞数
+    updatedData.likes = likedStatus 
+      ? (currentData.likes || 0) + 1 
+      : Math.max(0, (currentData.likes || 0) - 1);
+  }
   
   console.log(`更新后的数据: isLiked=${updatedData.isLiked}, likes=${updatedData.likes}`);
   saveVideoState(videoId, updatedData);
@@ -220,11 +232,14 @@ function setVideoCollectStatus(videoId, isCollected, videoData = {}) {
     const existingState = getVideoState(videoId) || {};
     console.log('更新收藏状态前的现有状态:', existingState);
     
-    // 合并现有状态与新提供的数据，确保我们不会丢失任何状态
+    // 优先保留现有点赞状态和点赞数，除非新数据明确提供了这些字段
     const combinedVideoData = {
-      ...existingState,
-      ...videoData,
-      isCollected: isCollected
+      ...existingState,                                       // 先加载所有现有状态
+      ...videoData,                                          // 再用新数据覆盖
+      isCollected: isCollected,                              // 强制设置收藏状态
+      // 如果新数据没有提供点赞相关字段，则保留现有状态
+      isLiked: videoData.isLiked !== undefined ? videoData.isLiked : existingState.isLiked,
+      likes: videoData.likes !== undefined ? videoData.likes : existingState.likes
     };
     
     // 确保我们保留现有的点赞状态和点赞数

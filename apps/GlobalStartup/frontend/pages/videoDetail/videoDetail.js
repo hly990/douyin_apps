@@ -212,6 +212,11 @@ Page({
       const isCollected = videoData.isCollected === true;
       const likes = videoData.likes || 0;
       
+      // 添加未定义likes的警告日志
+      if (videoData.likes === undefined) {
+        console.warn('[videoDetail] likes 为 undefined, fallback 0');
+      }
+      
       console.log('设置视频初始状态:', {
         isLiked: isLiked,
         isCollected: isCollected,
@@ -242,7 +247,10 @@ Page({
             isCollected: isCollected,
             likes: likes
           };
-          videoStateManager.saveVideoState(videoData.id, updatedData);
+          
+          // 使用状态专用函数更新，而不是直接调用saveVideoState
+          videoStateManager.setVideoLikeStatus(videoData.id, isLiked, likes, updatedData);
+          videoStateManager.setVideoCollectStatus(videoData.id, isCollected, likes, updatedData);
         }
         
         // 强制更新UI状态，解决可能的同步问题
@@ -540,7 +548,12 @@ Page({
       });
       
       // 使用全局状态管理器更新状态
-      videoStateManager.saveVideoState(videoId, updatedVideoData);
+      videoStateManager.setVideoCollectStatus(videoId, true, {
+        ...updatedVideoData,
+        isLiked: updatedVideoData.isLiked,  // 明确传递点赞状态
+        likes: updatedVideoData.likes,      // 明确传递点赞数
+        isCollected: true
+      });
       return;
     }
     
@@ -564,7 +577,12 @@ Page({
         });
         
         // 保存到全局状态
-        videoStateManager.saveVideoState(videoId, {...currentState, isCollected: true});
+        videoStateManager.setVideoCollectStatus(videoId, true, {
+          ...updatedVideoData,
+          isLiked: updatedVideoData.isLiked,  // 明确传递点赞状态
+          likes: updatedVideoData.likes,      // 明确传递点赞数
+          isCollected: true
+        });
         
         // 额外的UI更新保障，确保从收藏页面进入的视频始终显示为已收藏
         const updateTimes = [100, 300, 500, 1000];
@@ -610,11 +628,22 @@ Page({
             if (res.code === 0 && res.data) {
               console.log('API返回的点赞状态:', res.data);
               const liked = res.data.liked === true; // 确保是布尔值
+              const apiLikes = res.data.likes; // 从API获取点赞总数
+              
+              console.log(`API返回的点赞信息: 状态=${liked}, 总数=${apiLikes !== undefined ? apiLikes : '未返回'}`);
               
               // 更新UI数据
               const updatedVideoData = {...this.data.videoData};
               updatedVideoData.isLiked = liked;
-              updatedVideoData.likes = res.data.likes || updatedVideoData.likes || 0;
+              
+              // 优先使用API返回的点赞数，如果API返回了这个字段
+              if (apiLikes !== undefined) {
+                updatedVideoData.likes = apiLikes;
+                console.log(`使用API返回的点赞总数: ${apiLikes}`);
+              } else {
+                updatedVideoData.likes = updatedVideoData.likes || 0;
+                console.log(`API未返回点赞总数，使用缓存值: ${updatedVideoData.likes}`);
+              }
               
               // 强制立即更新UI，确保状态同步
               this.setData({
@@ -683,11 +712,11 @@ Page({
               
               // 使用videoStateManager更新全局状态
               // 将API返回的收藏状态传给状态管理器，确保只更新收藏相关的字段
-              videoStateManager.setVideoCollectStatus(videoId, !isCollected, {
+              videoStateManager.setVideoCollectStatus(videoId, collected, {
                 ...updatedVideoData,
                 isLiked: updatedVideoData.isLiked,  // 明确传递点赞状态
                 likes: updatedVideoData.likes,      // 明确传递点赞数
-                isCollected: !isCollected
+                isCollected: collected
               });
               
               console.log('使用API状态更新收藏状态:', {
@@ -776,7 +805,12 @@ Page({
         
         // 使用全局状态管理器更新状态
         if (updatedVideoData.id) {
-          videoStateManager.saveVideoState(updatedVideoData.id, {...updatedVideoData, isCollected: true});
+          videoStateManager.setVideoCollectStatus(updatedVideoData.id, true, {
+            ...updatedVideoData,
+            isLiked: updatedVideoData.isLiked,  // 明确传递点赞状态
+            likes: updatedVideoData.likes,      // 明确传递点赞数
+            isCollected: true
+          });
         }
       }
     }
@@ -789,16 +823,18 @@ Page({
       const cachedState = videoStateManager.getVideoState(videoId);
       if (!cachedState) return;
       
-      // 更新点赞状态
-      const updatedData = {
+      // 使用setVideoLikeStatus更新点赞状态，确保正确处理点赞数
+      videoStateManager.setVideoLikeStatus(videoId, isLiked, likes,{
         ...cachedState,
         isLiked: isLiked,
-        likes: isLiked ? (cachedState.likes || 0) + 1 : Math.max(0, (cachedState.likes || 0) - 1)
-      };
+        // 让setVideoLikeStatus自动处理点赞数的增减
+        likes: cachedState.likes || 0
+      });
       
-      // 使用状态管理器保存，确保全局状态一致
-      videoStateManager.saveVideoState(videoId, updatedData);
-      console.log('已更新缓存中的视频点赞状态');
+      console.log('已更新缓存中的视频点赞状态:', {
+        isLiked: isLiked,
+        likes: isLiked ? (cachedState.likes || 0) + 1 : Math.max(0, (cachedState.likes || 0) - 1)
+      });
     } catch (e) {
       console.error('更新缓存中的视频点赞状态失败:', e);
     }
@@ -1572,15 +1608,23 @@ Page({
     });
     
     // 使用全局状态管理器更新状态
-    videoStateManager.saveVideoState(videoId, updatedVideoData);
+    videoStateManager.setVideoLikeStatus(videoId, !isLiked, {
+      ...updatedVideoData,
+      isLiked: !isLiked,
+      likes: updatedVideoData.likes
+    });
     
-    // 延迟再次更新UI状态，确保显示正确
-    setTimeout(() => {
-      this.setData({
-        isLiked: !isLiked,
-        likes: updatedVideoData.likes
-      });
-    }, 100);
+    // 使用多次延迟更新策略，确保UI正确显示
+    const updateTimes = [100, 300, 500];
+    updateTimes.forEach(delay => {
+      setTimeout(() => {
+        this.setData({
+          isLiked: !isLiked,
+          likes: updatedVideoData.likes
+        });
+        console.log(`${delay}ms延迟更新点赞UI:`, {isLiked: !isLiked, likes: updatedVideoData.likes});
+      }, delay);
+    });
     
     // 显示操作提示
     tt.showToast({
@@ -1612,15 +1656,23 @@ Page({
             });
             
             // 使用全局状态管理器更新状态
-            videoStateManager.saveVideoState(videoId, updatedData);
+            videoStateManager.setVideoLikeStatus(videoId, liked, likes, {
+              ...updatedData,
+              isLiked: liked,
+              likes: updatedData.likes
+            });
             
-            // 延迟再次更新UI
-            setTimeout(() => {
-              this.setData({
-                isLiked: liked,
-                likes: updatedData.likes
-              });
-            }, 100);
+            // 使用多次延迟更新策略，确保UI正确显示
+            const updateTimes = [100, 300, 500];
+            updateTimes.forEach(delay => {
+              setTimeout(() => {
+                this.setData({
+                  isLiked: liked,
+                  likes: updatedData.likes
+                });
+                console.log(`${delay}ms延迟更新点赞UI:`, {isLiked: liked, likes: updatedData.likes});
+              }, delay);
+            });
           }
         }
       },
@@ -1638,7 +1690,11 @@ Page({
         });
         
         // 恢复全局状态
-        videoStateManager.saveVideoState(videoId, updatedData);
+        videoStateManager.setVideoLikeStatus(videoId, isLiked, likes, {
+          ...updatedData,
+          isLiked: isLiked,
+          likes: updatedData.likes
+        });
         
         tt.showToast({
           title: '操作失败，请重试',
@@ -1679,12 +1735,16 @@ Page({
       isCollected: !isCollected
     });
     
-    // 延迟再次更新UI状态，确保显示正确
-    setTimeout(() => {
-      this.setData({
-        isCollected: !isCollected
-      });
-    }, 100);
+    // 使用多次延迟更新策略，确保UI正确显示
+    const updateTimes = [100, 300, 500];
+    updateTimes.forEach(delay => {
+      setTimeout(() => {
+        this.setData({
+          isCollected: !isCollected
+        });
+        console.log(`${delay}ms延迟更新收藏UI:`, {isCollected: !isCollected});
+      }, delay);
+    });
     
     // 显示操作提示
     tt.showToast({
