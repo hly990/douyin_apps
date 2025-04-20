@@ -12,6 +12,32 @@
     </view>
   </view>
   
+  <!-- 登录弹窗组件 -->
+  <view class="login-modal-container" tt:if="{{showLoginModal}}">
+    <view class="login-modal-mask" bindtap="closeLoginModal"></view>
+    <view class="login-modal">
+      <view class="login-modal-title">登录提示</view>
+      <view class="login-modal-content">
+        登录后才能{{pendingAction === 'like' ? '点赞' : '收藏'}}视频
+      </view>
+      <view class="login-modal-buttons">
+        <button class="login-modal-cancel" bindtap="closeLoginModal">取消</button>
+        <button 
+          class="login-modal-confirm"
+          bindtap="handleLoginButtonClick"
+          loading="{{loginBtnLoading}}"
+        >一键授权</button>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 调试按钮，用于手动触发登录弹窗 -->
+  <button 
+    style="position:fixed; bottom:100px; right:20px; z-index:999; padding:10px; background:#f74585; color:white; font-size:12px; border-radius:4px;"
+    catchtap="testShowLogin">
+    测试登录弹窗
+  </button>
+  
   <!-- 状态栏占位，确保内容不被导航栏遮挡 -->
   <view style="width:100%; height:{{navBarHeight}}rpx;"></view>
 
@@ -45,17 +71,17 @@
 
     <!-- 右侧操作区 -->
     <view class="action-bar">
-      <view class="action-item" bindtap="likeVideo">
+      <view class="action-item" catchtap="toggleLike">
         <view class="action-icon {{isLiked ? 'active' : ''}}">
-          <text class="action-icon-inner">{{isLiked ? '❤️' : '♡'}}</text>
+          <view class="action-icon-inner">{{isLiked ? '❤️' : '♡'}}</view>
         </view>
-        <text class="action-text">{{likes || 0}}</text>
+        <view class="action-text">{{likes || 0}}</view>
       </view>
-      <view class="action-item" bindtap="collectVideo">
+      <view class="action-item" catchtap="toggleCollect">
         <view class="action-icon {{isCollected ? 'active' : ''}}">
-          <text class="action-icon-inner">{{isCollected ? '★' : '☆'}}</text>
+          <view class="action-icon-inner">{{isCollected ? '★' : '☆'}}</view>
         </view>
-        <text class="action-text">收藏</text>
+        <view class="action-text">收藏</view>
       </view>
     </view>
 

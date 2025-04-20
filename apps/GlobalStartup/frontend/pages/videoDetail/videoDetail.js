@@ -2,7 +2,7 @@ const app = getApp();
 const utils = require('../../utils/util');
 const api = require('../../api/api');
 const videoUtil = require('../../utils/video');
-const { isLoggedIn } = require('../../utils/auth');
+const { isLoggedIn, getUserInfo, logout, getUserProfileInfo, getLoginCode, completeLogin } = require('../../utils/auth');
 const { requireLogin } = require('../../utils/authManager');
 const videoStateManager = require('../../utils/videoStateManager');
 
@@ -70,10 +70,21 @@ Page({
     isVideoDetailsVisible: false, // 视频详情是否可见
     descExpanded: false,  // 描述是否展开
     showTags: false,      // 是否显示标签
+    showLoginModal: false, // 是否显示登录弹窗
+    isLogin: false,       // 是否已登录
+    pendingAction: null, // 添加挂起操作
+    loginBtnLoading: false, // 添加登录按钮加载状态
   },
 
   onLoad: function (options) {
     console.log('视频详情页接收参数:', options);
+    
+    // 初始化登录状态
+    const token = tt.getStorageSync('token');
+    this.setData({
+      isLogin: !!token
+    });
+    console.log('初始化登录状态:', this.data.isLogin ? '已登录' : '未登录');
     
     // 检查是否有必要的参数
     if (!options || (!options.id && !options.videoData)) {
@@ -275,11 +286,6 @@ Page({
       // 初始化视频上下文
       this.initVideoContext();
       
-      // 预加载视频
-      if (videoData.videoUrl) {
-        this.prepareVideo(videoData.videoUrl);
-      }
-      
       return;
     }
     
@@ -289,7 +295,7 @@ Page({
         videoId: options.id,
         isLoading: true
       });
-      this.loadVideoDetail(options.id);
+      this.loadVideoDetail();
     } else {
       console.error('没有有效的视频信息');
       tt.showToast({
@@ -304,6 +310,67 @@ Page({
 
     // 创建视频上下文
     this.videoContext = tt.createVideoContext('mainVideo', this);
+  },
+
+  // 加载视频详情数据
+  loadVideoDetail: function() {
+    const page = this;
+    const videoId = page.data.videoId;
+    
+    console.log('开始加载视频详情，videoId:', videoId);
+    
+    // 检查视频ID是否有效
+    if (!videoId) {
+      console.error('视频ID无效，无法加载视频');
+      page.setData({
+        loading: false,
+        isLoading: false,
+        loadFailed: true,
+        loadingText: '视频ID无效',
+        showError: true,
+        errorInfo: '无法播放此视频，请返回重试'
+      });
+      return;
+    }
+    
+    // 显示加载状态
+    page.setData({
+      loading: true,
+      isLoading: true,
+      loadingText: '正在加载视频...',
+      loadFailed: false,
+      showError: false
+    });
+    
+    // 使用Promise方式调用fetchVideoData
+    this.fetchVideoData(videoId)
+      .then(videoData => {
+        console.log('视频详情加载成功:', videoData.title);
+        
+        // 更新页面数据
+        page.setData({
+          isLoading: false,
+          loading: false,
+          loadingText: '',
+          videoLoaded: true
+        });
+        
+        // 加载相关视频
+        page.fetchRelatedVideos();
+      })
+      .catch(error => {
+        console.error('加载视频详情失败:', error);
+        
+        // 显示错误信息
+        page.setData({
+          isLoading: false,
+          loading: false,
+          loadFailed: true,
+          loadingText: '视频加载失败',
+          showError: true,
+          errorInfo: '视频加载失败，请重试'
+        });
+      });
   },
 
   // 初始化视频上下文方法
@@ -393,10 +460,69 @@ Page({
   },
   
   onReady: function() {
-    // 自动进入全屏模式
-    setTimeout(() => {
-      this.enterFullscreen();
-    }, 500);
+    console.log('页面加载完成，准备播放视频');
+    
+    // 获取视频上下文
+    if (!this.videoContext) {
+      this.videoContext = tt.createVideoContext('mainVideo', this);
+      console.log('创建视频上下文');
+    }
+    
+    // 检查视频数据是否已加载
+    if (this.data.videoData && this.data.videoData.videoUrl) {
+      console.log('视频数据已存在，准备自动播放');
+      
+      // 延迟一段时间后尝试播放视频，确保DOM已渲染完成
+      setTimeout(() => {
+        if (this.videoContext && this.data.autoPlay) {
+          console.log('开始自动播放视频');
+          this.videoContext.play();
+          
+          this.setData({
+            isPlaying: true,
+            isFirstPlay: false
+          });
+          
+          // 报告视频播放事件
+          this.reportVideoPlay();
+        } else {
+          console.log('自动播放被禁用或视频上下文不存在');
+        }
+      }, 500);
+    } else {
+      console.log('视频数据尚未加载完成，等待loadVideoDetail完成');
+    }
+    
+    // 监听网络状态变化
+    tt.onNetworkStatusChange((res) => {
+      console.log('网络状态变化:', res.isConnected ? '已连接' : '已断开', '网络类型:', res.networkType);
+      
+      if (!res.isConnected) {
+        // 网络断开，提示用户
+        tt.showToast({
+          title: '网络连接已断开',
+          icon: 'none'
+        });
+        
+        // 暂停视频播放
+        if (this.videoContext && this.data.isPlaying) {
+          this.videoContext.pause();
+          this.setData({
+            isPlaying: false
+          });
+        }
+      } else if (this.data.loadFailed) {
+        // 网络恢复且之前加载失败，尝试重新加载
+        console.log('网络已恢复，尝试重新加载视频');
+        const videoId = this.data.videoId;
+        if (videoId) {
+          // 延迟一点时间再重新加载，确保网络稳定
+          setTimeout(() => {
+            this.loadVideoDetail();
+          }, 1000);
+        }
+      }
+    });
   },
   
   onHide: function() {
@@ -438,61 +564,176 @@ Page({
     console.log(`尝试从API获取视频详情: ${videoId}`);
     const defaultData = page.data.videoData || null;
     
-    return api.getVideoDetail({
-      videoId: videoId,
-      defaultData: defaultData, // 传递默认数据作为备选
-      success: (res) => {
-        if (res.code === 0 && res.data) {
-          // 使用视频工具处理数据
-          const processedData = videoUtil.processVideo(res.data);
+    return new Promise((resolve, reject) => {
+      // 标记当前正在加载的视频ID，避免重复加载
+      if (currentLoadingVideoId === videoId) {
+        console.log('该视频详情正在加载中，避免重复请求');
+        setTimeout(() => {
+          if (page.data.videoData) {
+            resolve(page.data.videoData);
+          } else {
+            reject(new Error('视频数据加载超时'));
+          }
+        }, 1000);
+        return;
+      }
+      
+      // 设置当前加载的视频ID
+      currentLoadingVideoId = videoId;
+      
+      // 显示加载状态
+      page.setData({
+        isLoading: true,
+        loading: true,
+        loadingText: '加载中...'
+      });
+      
+      api.getVideoDetail({
+        videoId: videoId,
+        defaultData: defaultData, // 传递默认数据作为备选
+        success: (res) => {
+          // 重置当前加载的视频ID
+          currentLoadingVideoId = null;
           
-          // 获取视频宽高比例，更新视频播放器高度
-          if (processedData.width && processedData.height) {
-            const aspectRatio = processedData.width / processedData.height;
+          if (res.code === 0 && res.data) {
+            // 使用视频工具处理数据
+            const processedData = videoUtil.processVideo(res.data);
+            
+            // 确保视频URL存在
+            if (!processedData.videoUrl && processedData.url) {
+              processedData.videoUrl = processedData.url;
+              console.log('从url字段复制到videoUrl字段:', processedData.videoUrl);
+            }
+            
+            // 确保视频URL不为空
+            if (!processedData.videoUrl) {
+              console.error('视频URL为空，尝试其他字段');
+              processedData.videoUrl = processedData.url || 
+                                      processedData.playUrl || 
+                                      processedData.src || 
+                                      processedData.video_url ||
+                                      processedData.play_url ||
+                                      '';
+              console.log('设置视频URL:', processedData.videoUrl);
+              
+              // 如果视频URL仍然为空，则给出错误提示
+              if (!processedData.videoUrl) {
+                page.setData({
+                  loading: false,
+                  isLoading: false,
+                  loadFailed: true,
+                  loadingText: '视频地址无效',
+                  showError: true,
+                  errorInfo: '视频地址无效，请返回重试'
+                });
+                
+                reject(new Error('视频URL为空'));
+                return;
+              }
+            }
+            
+            // 获取视频宽高比例，更新视频播放器高度
+            if (processedData.width && processedData.height) {
+              const aspectRatio = processedData.width / processedData.height;
+              page.setData({
+                videoHeight: page.data.windowWidth / aspectRatio
+              });
+            }
+            
+            // 更新页面数据
             page.setData({
-              videoHeight: page.data.windowWidth / aspectRatio
+              videoData: processedData,
+              video: processedData,
+              loading: false,
+              isLoading: false,
+              videoId: processedData.id || videoId,
+              isVideoReady: true
             });
+            
+            // 获取最新的点赞、收藏状态
+            page.checkVideoStatus(videoId);
+            
+            // 获取相关视频但不依赖它们
+            page.fetchRelatedVideosNoAPI(videoId);
+            
+            resolve(processedData);
+          } else {
+            console.error('API返回异常:', res);
+            
+            // 设置失败状态
+            page.setData({
+              loading: false,
+              isLoading: false,
+              loadFailed: true,
+              loadingText: '视频加载失败',
+              showError: true,
+              errorInfo: res.msg || '获取视频数据失败'
+            });
+            
+            reject(new Error(res.msg || '获取视频数据失败'));
+          }
+        },
+        fail: (err) => {
+          // 重置当前加载的视频ID
+          currentLoadingVideoId = null;
+          
+          console.error('获取视频详情失败', err);
+          
+          // 如果API请求失败但有缓存数据，使用缓存数据
+          if (page.data.videoData) {
+            console.log('API获取失败，使用缓存数据');
+            const processedCachedVideo = videoUtil.processVideo(page.data.videoData);
+            
+            // 确保缓存数据中视频URL存在
+            if (!processedCachedVideo.videoUrl) {
+              processedCachedVideo.videoUrl = processedCachedVideo.url || 
+                                            processedCachedVideo.playUrl || 
+                                            processedCachedVideo.src || 
+                                            processedCachedVideo.video_url ||
+                                            processedCachedVideo.play_url ||
+                                            '';
+              console.log('设置缓存视频URL:', processedCachedVideo.videoUrl);
+            }
+            
+            if (!processedCachedVideo.videoUrl) {
+              page.setData({
+                loading: false,
+                isLoading: false,
+                loadFailed: true,
+                loadingText: '视频地址无效',
+                showError: true,
+                errorInfo: '视频地址无效，请返回重试'
+              });
+              
+              reject(new Error('缓存的视频URL为空'));
+              return;
+            }
+            
+            page.setData({
+              videoData: processedCachedVideo,
+              video: processedCachedVideo,
+              isLoading: false,
+              loading: false,
+              isVideoReady: true
+            });
+            
+            resolve(processedCachedVideo);
+            return;
           }
           
+          // 真正失败的情况
           page.setData({
-            videoData: processedData,
-            video: processedData,
-            loading: false
-          });
-          
-          // 获取最新的点赞、收藏状态
-          page.checkVideoStatus(videoId);
-          
-          // 获取相关视频但不依赖它们
-          page.fetchRelatedVideosNoAPI(videoId);
-        }
-      },
-      fail: (err) => {
-        console.error('获取视频详情失败', err);
-        
-        // 如果API请求失败但有缓存数据，使用缓存数据
-        if (page.data.videoData) {
-          console.log('API获取失败，使用基本视频数据');
-          const processedCachedVideo = videoUtil.processVideo(page.data.videoData);
-          page.setData({
-            videoData: processedCachedVideo,
-            video: processedCachedVideo,
-            isLoading: false,
             loading: false,
-            isVideoReady: true
+            isLoading: false,
+            loadFailed: true,
+            loadingText: '视频加载失败',
+            showError: true,
+            errorInfo: '视频加载失败，请重试'
           });
           
-          return processedCachedVideo;
+          reject(err);
         }
-        
-        // 真正失败的情况
-        page.setData({
-          loading: false,
-          isLoading: false,
-          loadFailed: true,
-          loadingText: '视频加载失败'
-        });
-      }
+      });
     });
   },
   
@@ -823,17 +1064,22 @@ Page({
       const cachedState = videoStateManager.getVideoState(videoId);
       if (!cachedState) return;
       
+      // 计算新的点赞数
+      const nextLikes = isLiked 
+        ? (cachedState.likes || 0) + 1 
+        : Math.max(0, (cachedState.likes || 0) - 1);
+      
       // 使用setVideoLikeStatus更新点赞状态，确保正确处理点赞数
-      videoStateManager.setVideoLikeStatus(videoId, isLiked, likes,{
+      videoStateManager.setVideoLikeStatus(videoId, isLiked, {
         ...cachedState,
         isLiked: isLiked,
-        // 让setVideoLikeStatus自动处理点赞数的增减
-        likes: cachedState.likes || 0
+        // 传递计算后的点赞数
+        likes: nextLikes
       });
       
       console.log('已更新缓存中的视频点赞状态:', {
         isLiked: isLiked,
-        likes: isLiked ? (cachedState.likes || 0) + 1 : Math.max(0, (cachedState.likes || 0) - 1)
+        likes: nextLikes
       });
     } catch (e) {
       console.error('更新缓存中的视频点赞状态失败:', e);
@@ -1439,6 +1685,11 @@ Page({
     const cachedVideoList = tt.getStorageSync('videoList') || [];
     console.log('尝试从本地缓存获取相关视频');
     
+    // 设置加载状态
+    this.setData({
+      isRelatedLoading: true
+    });
+    
     if (cachedVideoList.length > 0) {
       // 过滤掉当前视频，最多取8个其他视频作为相关视频
       const relatedVideos = cachedVideoList
@@ -1452,13 +1703,92 @@ Page({
         });
       
       this.setData({
-        relatedVideos: relatedVideos
+        relatedVideos: relatedVideos,
+        isRelatedLoading: false
       });
       
       console.log('从本地缓存成功加载了', relatedVideos.length, '个相关视频');
     } else {
-      console.log('本地缓存中没有视频数据');
+      console.log('本地缓存中没有视频数据，尝试从推荐列表获取');
+      
+      // 尝试获取推荐列表
+      const recommendList = app.globalData.recommendList || [];
+      
+      if (recommendList.length > 0) {
+        // 从推荐列表中随机获取最多8个视频
+        const randomVideos = recommendList
+          .filter(video => video.id != currentVideoId)
+          .sort(() => 0.5 - Math.random()) // 随机排序
+          .slice(0, 8)
+          .map(item => {
+            return {
+              ...item,
+              duration: utils.formatDuration(item.duration || 0)
+            };
+          });
+        
+        this.setData({
+          relatedVideos: randomVideos,
+          isRelatedLoading: false
+        });
+        
+        console.log('从推荐列表加载了', randomVideos.length, '个相关视频');
+      } else {
+        // 如果没有缓存和推荐列表，使用模拟数据
+        console.log('无法获取相关视频，使用默认数据');
+        
+        // 创建一些示例视频作为占位符
+        const placeholderVideos = Array(4).fill(null).map((_, index) => {
+          return {
+            id: `placeholder-${index}`,
+            title: `推荐视频 ${index + 1}`,
+            coverUrl: 'https://via.placeholder.com/480x720/f5f5f5/999999?text=Video',
+            playCount: Math.floor(Math.random() * 10000),
+            author: {
+              id: `author-${index}`,
+              name: `创作者 ${index + 1}`,
+              avatarUrl: 'https://via.placeholder.com/100x100/f0f0f0/666666?text=User'
+            },
+            duration: utils.formatDuration(Math.floor(Math.random() * 120))
+          };
+        });
+        
+        this.setData({
+          relatedVideos: placeholderVideos,
+          isRelatedLoading: false
+        });
+        
+        console.log('使用', placeholderVideos.length, '个占位视频数据');
+      }
     }
+    
+    // 在加载相关视频后，可以考虑预加载视频封面
+    setTimeout(() => {
+      this.preloadRelatedVideoCovers();
+    }, 500);
+  },
+  
+  // 预加载相关视频封面
+  preloadRelatedVideoCovers: function() {
+    const { relatedVideos } = this.data;
+    
+    if (!relatedVideos || relatedVideos.length === 0) return;
+    
+    console.log('开始预加载相关视频封面');
+    
+    relatedVideos.forEach((video, index) => {
+      if (video.coverUrl) {
+        tt.getImageInfo({
+          src: video.coverUrl,
+          success: () => {
+            console.log(`预加载第 ${index + 1} 个视频封面成功`, video.coverUrl.substring(0, 50) + '...');
+          },
+          fail: (err) => {
+            console.warn(`预加载第 ${index + 1} 个视频封面失败`, err);
+          }
+        });
+      }
+    });
   },
 
   reportVideoPlay() {
@@ -1571,499 +1901,524 @@ Page({
       content: '登录后才能使用此功能，是否立即登录？',
       success: (res) => {
         if (res.confirm) {
-          // 导航到登录页面，并设置返回参数
+          console.log('用户点击确定，跳转到登录页面');
+          // 直接导航到登录页面，不使用自定义弹窗
           tt.navigateTo({
-            url: '/pages/login/login?from=' + encodeURIComponent(this.route + '?id=' + this.data.videoData.id)
+            url: '/pages/login/login?from=' + encodeURIComponent(this.route + '?id=' + this.data.videoId)
           });
         }
       }
     });
   },
 
-  // 模板绑定的点赞方法，调用 handleLike
-  likeVideo: function() {
-    if (!this.data.videoData) return;
+  // 测试登录弹窗
+  testShowLogin() {
+    console.log('手动触发登录测试');
     
-    const videoId = this.data.videoId;
-    const isLiked = this.data.videoData.isLiked;
-    const likes = this.data.videoData.likes || 0;
-    
-    console.log(`尝试${isLiked ? '取消点赞' : '点赞'}视频: ID=${videoId}`);
-    
-    // 乐观更新UI
-    const updatedVideoData = {...this.data.videoData};
-    updatedVideoData.isLiked = !isLiked;
-    updatedVideoData.likes = isLiked ? Math.max(0, likes - 1) : likes + 1;
-    
-    // 立即更新UI
-    this.setData({
-      videoData: updatedVideoData,
-      isLiked: !isLiked,
-      likes: updatedVideoData.likes
-    });
-    
-    console.log('点赞UI已更新:', {
-      isLiked: !isLiked,
-      likes: updatedVideoData.likes
-    });
-    
-    // 使用全局状态管理器更新状态
-    videoStateManager.setVideoLikeStatus(videoId, !isLiked, {
-      ...updatedVideoData,
-      isLiked: !isLiked,
-      likes: updatedVideoData.likes
-    });
-    
-    // 使用多次延迟更新策略，确保UI正确显示
-    const updateTimes = [100, 300, 500];
-    updateTimes.forEach(delay => {
-      setTimeout(() => {
-        this.setData({
-          isLiked: !isLiked,
-          likes: updatedVideoData.likes
-        });
-        console.log(`${delay}ms延迟更新点赞UI:`, {isLiked: !isLiked, likes: updatedVideoData.likes});
-      }, delay);
-    });
-    
-    // 显示操作提示
-    tt.showToast({
-      title: !isLiked ? '已点赞' : '已取消点赞',
-      icon: 'none',
-      duration: 1500
-    });
-    
-    // 调用API
-    api.toggleVideoLike({
-      videoId: videoId,
-      success: (res) => {
-        console.log('切换点赞状态成功:', res);
-        
-        if (res.code === 0 && res.data) {
-          const liked = res.data.liked;
-          
-          // 如果服务器返回的状态与我们乐观更新的不一致，则以服务器为准
-          if (liked !== this.data.videoData.isLiked) {
-            const updatedData = {...this.data.videoData};
-            updatedData.isLiked = liked;
-            updatedData.likes = liked ? (likes + 1) : Math.max(0, likes - 1);
-            
-            // 更新UI
-            this.setData({
-              videoData: updatedData,
-              isLiked: liked,
-              likes: updatedData.likes
-            });
-            
-            // 使用全局状态管理器更新状态
-            videoStateManager.setVideoLikeStatus(videoId, liked, likes, {
-              ...updatedData,
-              isLiked: liked,
-              likes: updatedData.likes
-            });
-            
-            // 使用多次延迟更新策略，确保UI正确显示
-            const updateTimes = [100, 300, 500];
-            updateTimes.forEach(delay => {
-              setTimeout(() => {
-                this.setData({
-                  isLiked: liked,
-                  likes: updatedData.likes
-                });
-                console.log(`${delay}ms延迟更新点赞UI:`, {isLiked: liked, likes: updatedData.likes});
-              }, delay);
-            });
-          }
-        }
-      },
-      fail: (err) => {
-        console.error('切换点赞状态失败:', err);
-        // 操作失败，恢复原状态
-        const updatedData = {...this.data.videoData};
-        updatedData.isLiked = isLiked;
-        updatedData.likes = isLiked ? (likes + 1) : Math.max(0, likes - 1);
-        
-        this.setData({
-          videoData: updatedData,
-          isLiked: isLiked,
-          likes: updatedData.likes
-        });
-        
-        // 恢复全局状态
-        videoStateManager.setVideoLikeStatus(videoId, isLiked, likes, {
-          ...updatedData,
-          isLiked: isLiked,
-          likes: updatedData.likes
-        });
-        
-        tt.showToast({
-          title: '操作失败，请重试',
-          icon: 'none'
-        });
-      }
+    // 直接导航到登录页面
+    console.log('跳转到登录页面');
+    tt.navigateTo({
+      url: '/pages/login/login?from=' + encodeURIComponent(this.route + '?id=' + this.data.videoId)
     });
   },
   
-  // 模板绑定的收藏方法，调用 handleCollect
-  collectVideo: function() {
-    if (!this.data.videoData) return;
+  // 点赞入口函数
+  toggleLike: function() {
+    console.log('toggleLike被调用');
     
-    const videoId = this.data.videoId;
-    const isCollected = this.data.videoData.isCollected;
-    
-    console.log(`尝试${isCollected ? '取消收藏' : '收藏'}视频: ID=${videoId}`);
-    
-    // 乐观更新UI
-    const updatedVideoData = {...this.data.videoData};
-    updatedVideoData.isCollected = !isCollected;
-    
-    // 立即更新UI
-    this.setData({
-      videoData: updatedVideoData,
-      isCollected: !isCollected
-    });
-    
-    console.log('收藏UI已更新:', {
-      isCollected: !isCollected
-    });
-    
-    // 使用全局状态管理器更新状态，确保使用setVideoCollectStatus保留点赞状态
-    videoStateManager.setVideoCollectStatus(videoId, !isCollected, {
-      ...updatedVideoData,
-      isLiked: updatedVideoData.isLiked,  // 明确传递点赞状态
-      likes: updatedVideoData.likes,      // 明确传递点赞数
-      isCollected: !isCollected
-    });
-    
-    // 使用多次延迟更新策略，确保UI正确显示
-    const updateTimes = [100, 300, 500];
-    updateTimes.forEach(delay => {
-      setTimeout(() => {
-        this.setData({
-          isCollected: !isCollected
-        });
-        console.log(`${delay}ms延迟更新收藏UI:`, {isCollected: !isCollected});
-      }, delay);
-    });
-    
-    // 显示操作提示
-    tt.showToast({
-      title: !isCollected ? '已收藏' : '已取消收藏',
-      icon: 'none',
-      duration: 1500
-    });
-    
-    // 调用API
-    api.toggleVideoCollection({
-      videoId: videoId,
-      success: (res) => {
-        console.log('切换收藏状态成功:', res);
-        
-        if (res.code === 0 && res.data) {
-          const collected = res.data.collected;
-          
-          // 如果服务器返回的状态与我们乐观更新的不一致，则以服务器为准
-          if (collected !== this.data.videoData.isCollected) {
-            const updatedData = {...this.data.videoData};
-            updatedData.isCollected = collected;
-            
-            // 更新UI
-            this.setData({
-              videoData: updatedData,
-              isCollected: collected
-            });
-            
-            // 使用全局状态管理器更新状态，确保使用setVideoCollectStatus保留点赞状态
-            videoStateManager.setVideoCollectStatus(videoId, collected, {
-              ...updatedData,
-              isLiked: updatedData.isLiked,  // 明确传递点赞状态
-              likes: updatedData.likes,      // 明确传递点赞数
-              isCollected: collected
-            });
-            
-            // 使用多次延迟更新策略，确保UI正确显示
-            const updateTimes = [100, 300, 500];
-            updateTimes.forEach(delay => {
-              setTimeout(() => {
-                this.setData({
-                  isCollected: collected
-                });
-                console.log(`${delay}ms延迟更新收藏UI:`, {isCollected: collected});
-              }, delay);
-            });
-          }
-        }
-      },
-      fail: (err) => {
-        console.error('切换收藏状态失败:', err);
-        // 操作失败，恢复原状态
-        const updatedData = {...this.data.videoData};
-        updatedData.isCollected = isCollected;
-        
-        this.setData({
-          videoData: updatedData,
-          isCollected: isCollected
-        });
-        
-        // 恢复全局状态，使用setVideoCollectStatus确保保留点赞状态
-        videoStateManager.setVideoCollectStatus(videoId, isCollected, {
-          ...updatedData,
-          isLiked: updatedData.isLiked,  // 明确传递点赞状态
-          likes: updatedData.likes,      // 明确传递点赞数
-          isCollected: isCollected
-        });
-        
-        tt.showToast({
-          title: '操作失败，请重试',
-          icon: 'none'
-        });
-      }
-    });
-  },
-  
-  // 预加载视频处理
-  prepareVideo(videoUrl) {
-    if (!videoUrl) {
-      console.error('无效的视频URL');
+    // 检查登录状态
+    const token = tt.getStorageSync('token');
+    if (!token) {
+      console.log('用户未登录，显示登录对话框');
+      // 显示登录确认弹窗
       this.setData({
-        loadFailed: true,
-        isLoading: false,
-        showError: true,
-        errorInfo: '视频地址无效，请尝试重新加载'
+        showLoginModal: true,
+        pendingAction: 'like'
       });
       return;
     }
     
-    console.log('准备加载视频:', videoUrl);
-    
-    // 获取系统信息设置视频播放器尺寸
-    tt.getSystemInfo({
-      success: (res) => {
-        this.setData({
-          windowWidth: res.windowWidth,
-          windowHeight: res.windowHeight,
-          videoHeight: res.windowHeight, // 设置视频高度为屏幕高度
-          statusBarHeight: res.statusBarHeight,
-          isLoading: false,
-          isVideoReady: true // 标记视频已准备好
-        });
-      }
-    });
+    // 用户已登录，执行点赞逻辑
+    this.doLikeOperation();
   },
   
-  // 视频加载失败时的重试操作
-  retryPlayVideo: function() {
-    const { videoId, videoData } = this.data;
+  // 实际的点赞操作逻辑
+  doLikeOperation: function() {
+    const { videoId, isLiked, likes } = this.data;
     
-    // 先隐藏错误提示
-    this.setData({
-      showError: false,
-      errorInfo: '',
-      isLoading: true,
-      loadingText: '正在重新加载...'
-    });
-    
-    // 确保视频上下文存在
-    if (!this.videoContext) {
-      this.videoContext = tt.createVideoContext('mainVideo', this);
-    }
-    
-    // 尝试多种重试策略
-    if (videoData && videoData.videoUrl) {
-      console.log('重试播放视频，使用现有URL:', videoData.videoUrl);
-      
-      // 先停止视频
-      this.videoContext.stop();
-      
-      // 更新URL并重新播放
-      const updatedVideoData = {...videoData};
-      
-      // 延时执行播放操作
-      setTimeout(() => {
-        this.setData({
-          isLoading: false
-        }, () => {
-          this.videoContext.play();
-          this.setData({
-            isPlaying: true
-          });
-        });
-      }, 500);
-    } else if (videoId) {
-      // 如果没有有效的视频URL但有videoId，则重新加载视频
-      console.log('重新加载视频数据, ID:', videoId);
-      this.loadVideoDetail(videoId);
-    } else {
-      // 无有效信息，显示提示
-      tt.showToast({
-        title: '无法重试，缺少视频信息',
-        icon: 'none'
-      });
-      this.setData({
-        isLoading: false,
-        loadFailed: true,
-        showError: true,
-        errorInfo: '无法重新加载视频，请返回后重试'
-      });
-    }
-  },
-
-  loadVideoDetail: function (videoId) {
     if (!videoId) {
-      console.error('加载视频详情失败: 缺少videoId');
+      console.error('无效的视频ID');
+      return;
+    }
+
+    // 乐观更新UI
+    const newLikes = isLiked ? Math.max(0, likes - 1) : likes + 1;
+    this.setData({
+      isLiked: !isLiked,
+      likes: newLikes
+    });
+    
+    // 调用API
+    api.likeVideo({
+      videoId: videoId,
+      like: !isLiked,
+      success: (res) => {
+        if (res.code === 0) {
+          console.log('点赞操作成功:', !isLiked ? '已点赞' : '已取消点赞');
+          
+          // 更新全局状态
+          this.updateCachedVideoLikeStatus(videoId, !isLiked);
+        } else {
+          console.error('点赞API返回错误:', res);
+          // 恢复之前的UI状态
+          this.setData({
+            isLiked: isLiked,
+            likes: likes
+          });
+          tt.showToast({
+            title: res.msg || '操作失败',
+            icon: 'none'
+          });
+        }
+      },
+      fail: (err) => {
+        console.error('点赞API调用失败:', err);
+        // 恢复之前的UI状态
+        this.setData({
+          isLiked: isLiked,
+          likes: likes
+        });
+        tt.showToast({
+          title: '网络错误，请重试',
+          icon: 'none'
+        });
+      }
+    });
+  },
+  
+  // 收藏入口函数
+  toggleCollect: function() {
+    console.log('toggleCollect被调用');
+    
+    // 检查登录状态
+    const token = tt.getStorageSync('token');
+    if (!token) {
+      console.log('用户未登录，显示登录对话框');
+      // 显示登录确认弹窗
       this.setData({
-        loadFailed: true,
-        isLoading: false,
-        loadingText: '视频ID无效'
+        showLoginModal: true,
+        pendingAction: 'collect'
       });
       return;
     }
     
-    console.log('开始加载视频详情:', videoId);
+    // 用户已登录，执行收藏逻辑
+    this.doCollectOperation();
+  },
+  
+  // 实际的收藏操作逻辑
+  doCollectOperation: function() {
+    const { videoId, isCollected } = this.data;
     
-    // 记录当前正在加载的视频ID
-    currentLoadingVideoId = videoId;
+    if (!videoId) {
+      console.error('无效的视频ID');
+      return;
+    }
+
+    // 乐观更新UI
+    this.setData({
+      isCollected: !isCollected
+    });
+    
+    // 调用API
+    api.collectVideo({
+      videoId: videoId,
+      collect: !isCollected,
+      success: (res) => {
+        if (res.code === 0) {
+          console.log('收藏操作成功:', !isCollected ? '已收藏' : '已取消收藏');
+          
+          // 更新全局状态
+          this.updateCachedVideoCollectStatus(videoId, !isCollected);
+          
+          tt.showToast({
+            title: !isCollected ? '已加入收藏' : '已取消收藏',
+            icon: 'none'
+          });
+        } else {
+          console.error('收藏API返回错误:', res);
+          // 恢复之前的UI状态
+          this.setData({
+            isCollected: isCollected
+          });
+          tt.showToast({
+            title: res.msg || '操作失败',
+            icon: 'none'
+          });
+        }
+      },
+      fail: (err) => {
+        console.error('收藏API调用失败:', err);
+        // 恢复之前的UI状态
+        this.setData({
+          isCollected: isCollected
+        });
+        tt.showToast({
+          title: '网络错误，请重试',
+          icon: 'none'
+        });
+      }
+    });
+  },
+  
+  // 由用户点击直接触发的登录方法
+  onLoginTap: function(actionType) {
+    console.log('用户点击触发登录，操作类型:', actionType);
+    
+    // 调用抖音原生登录
+    tt.login({
+      success: (loginRes) => {
+        console.log('抖音登录成功:', loginRes);
+        
+        // 登录成功后，获取用户信息（这里是直接由用户点击触发的）
+        tt.getUserProfile({
+          desc: '用于完善用户资料',
+          withCredentials: true,
+          success: (userRes) => {
+            console.log('获取用户信息成功:', userRes);
+            
+            // 构建登录请求数据
+            const loginData = {
+              code: loginRes.code,
+              anonymousCode: loginRes.anonymousCode,
+              encryptedData: userRes.encryptedData,
+              iv: userRes.iv,
+              signature: userRes.signature,
+              rawData: userRes.rawData,
+              userInfo: userRes.userInfo
+            };
+            
+            // 调用后端登录接口
+            api.login({
+              data: loginData,
+              success: (apiRes) => {
+                if (apiRes.code === 0 && apiRes.data) {
+                  // 保存登录信息
+                  tt.setStorageSync('token', apiRes.data.token);
+                  tt.setStorageSync('userInfo', apiRes.data.userInfo);
+                  
+                  // 更新UI状态
+                  this.setData({
+                    isLogin: true
+                  });
+                  
+                  tt.showToast({
+                    title: '登录成功',
+                    icon: 'success'
+                  });
+                  
+                  // 执行原来的操作
+                  if (actionType === 'like') {
+                    this.doLikeOperation();
+                  } else if (actionType === 'collect') {
+                    this.doCollectOperation();
+                  }
+                } else {
+                  console.error('后端登录接口返回错误:', apiRes);
+                  tt.showToast({
+                    title: apiRes.msg || '登录失败',
+                    icon: 'none'
+                  });
+                }
+              },
+              fail: (err) => {
+                console.error('登录请求失败:', err);
+                tt.showToast({
+                  title: '登录失败，请重试',
+                  icon: 'none'
+                });
+              }
+            });
+          },
+          fail: (err) => {
+            console.error('获取用户信息失败:', err);
+            tt.showToast({
+              title: '获取用户信息失败',
+              icon: 'none'
+            });
+          }
+        });
+      },
+      fail: (err) => {
+        console.error('抖音登录失败:', err);
+        tt.showToast({
+          title: '登录失败，请重试',
+          icon: 'none'
+        });
+      }
+    });
+  },
+  
+  // 登录成功回调
+  onLoginSuccess: function(e) {
+    console.log('onLoginSuccess被调用，接收参数:', e);
+    
+    this.setData({ 
+      isLogin: true, 
+      showLoginModal: false 
+    });
+    console.log('登录状态已更新: isLogin=true, showLoginModal=false');
+    
+    // 登录成功后执行待办动作
+    if (this.pendingAction) {
+      console.log('发现待执行操作，准备执行');
+      this.pendingAction();
+      console.log('待执行操作已完成');
+      this.pendingAction = null;
+    } else {
+      console.log('没有待执行的操作');
+    }
+  },
+  
+  // 关闭登录弹窗
+  hideLoginModal: function() {
+    console.log('hideLoginModal被调用');
+    this.setData({ showLoginModal: false });
+    this.pendingAction = null;
+  },
+
+  // 获取视频评论
+  fetchComments: function(videoId) {
+    if (!videoId) {
+      console.error('无效的视频ID，无法获取评论');
+      return;
+    }
     
     // 设置加载状态
     this.setData({
-      videoId: videoId,
-      isLoading: true,
-      loadFailed: false,
-      loadingText: '加载中...'
+      isCommentLoading: true
     });
     
-    // 尝试从缓存获取视频状态
-    const cachedState = videoStateManager.getVideoState(videoId);
-    if (cachedState) {
-      console.log('发现缓存的视频状态:', cachedState);
-      // 使用缓存状态初始化UI
-      this.setData({
-        isLiked: cachedState.isLiked === true,
-        isCollected: cachedState.isCollected === true,
-        likes: cachedState.likes || 0
-      });
-    }
+    console.log('开始获取视频评论，videoId:', videoId);
     
-    // 调用API获取视频详情
-    api.getVideoDetail({
+    api.getVideoComments({
       videoId: videoId,
+      page: this.data.commentPage,
+      pageSize: 20,
       success: (res) => {
         if (res.code === 0 && res.data) {
-          // 检查是否仍在加载请求的视频
-          if (currentLoadingVideoId !== videoId) {
-            console.log('视频ID已变更，忽略返回结果');
-            return;
+          console.log('获取评论成功，共', res.data.items ? res.data.items.length : 0, '条评论');
+          
+          // 合并评论数据，避免重复加载相同评论
+          let newComments = [];
+          
+          if (this.data.commentPage === 1) {
+            // 第一页直接使用API返回的数据
+            newComments = res.data.items || [];
+          } else {
+            // 后续页合并到已有评论列表
+            const existingCommentIds = this.data.commentList.map(item => item.id);
+            newComments = [
+              ...this.data.commentList,
+              ...(res.data.items || []).filter(item => !existingCommentIds.includes(item.id))
+            ];
           }
           
-          // 处理视频数据
-          const processedData = videoUtil.processVideo(res.data);
-          
-          // 合并缓存中的点赞状态
-          if (cachedState) {
-            processedData.isLiked = cachedState.isLiked === true;
-            processedData.isCollected = cachedState.isCollected === true;
-            processedData.likes = cachedState.likes || processedData.likes || 0;
-          }
-          
-          console.log('加载视频详情成功, 处理后的数据:', processedData);
-          
-          // 更新UI
-          this.setData({
-            videoData: processedData,
-            video: processedData,
-            isLiked: processedData.isLiked === true,
-            isCollected: processedData.isCollected === true,
-            likes: processedData.likes || 0,
-            isLoading: false,
-            loadFailed: false,
-            isVideoReady: true
-          }, () => {
-            // 在UI更新后，检查最新的视频状态（点赞、收藏）
-            console.log('视频数据设置完成，开始检查最新状态');
-            this.checkVideoStatus(videoId);
+          // 处理评论数据，确保包含正确的点赞状态和回复计数
+          const processedComments = newComments.map(comment => {
+            return {
+              ...comment,
+              isLiked: comment.isLiked === true, // 确保是布尔值
+              likes: comment.likes || 0,         // 确保有点赞数
+              replyCount: comment.replyCount || 0 // 确保有回复计数
+            };
           });
           
-          // 获取相关视频
-          this.fetchRelatedVideos(videoId);
+          const total = res.data.total || 0;
+          const hasMore = processedComments.length < total;
           
-          // 自动播放视频
-          setTimeout(() => {
-            if (this.videoContext) {
-              this.videoContext.play();
-              this.setData({ isPlaying: true });
-            }
-          }, 300);
+          this.setData({
+            commentList: processedComments,
+            commentTotal: total,
+            commentHasMore: hasMore,
+            isCommentLoading: false
+          });
+          
+          console.log('评论数据已更新，总评论数:', total, '是否有更多:', hasMore);
         } else {
-          // API返回错误
-          console.error('获取视频详情失败:', res.msg || '未知错误');
+          console.error('获取评论API返回错误:', res);
+          
           this.setData({
-            loadFailed: true,
-            isLoading: false,
-            loadingText: res.msg || '加载失败'
+            isCommentLoading: false
           });
+          
+          if (this.data.commentPage === 1) {
+            // 只有在第一页加载失败时显示提示
+            tt.showToast({
+              title: res.msg || '获取评论失败',
+              icon: 'none'
+            });
+          }
         }
       },
       fail: (err) => {
-        console.error('获取视频详情请求失败:', err);
+        console.error('获取评论请求失败:', err);
+        
         this.setData({
-          loadFailed: true,
-          isLoading: false,
-          loadingText: '网络请求失败'
+          isCommentLoading: false
         });
+        
+        if (this.data.commentPage === 1) {
+          // 只有在第一页加载失败时显示提示
+          tt.showToast({
+            title: '获取评论失败，请重试',
+            icon: 'none'
+          });
+        }
       }
     });
   },
-
-  // 进入全屏模式
-  enterFullscreen() {
-    if (this.videoContext) {
-      this.videoContext.requestFullScreen({
-        direction: 0,
-        success: () => {
-          console.log('进入全屏模式成功');
-          this.setData({
-            isFullscreen: true
-          });
-        },
-        fail: (err) => {
-          console.error('进入全屏模式失败:', err);
-        }
-      });
-    }
-  },
-
-  // 退出全屏模式
-  exitFullscreen() {
-    if (this.videoContext) {
-      this.videoContext.exitFullScreen({
-        success: () => {
-          console.log('退出全屏模式成功');
-          this.setData({
-            isFullscreen: false
-          });
-        },
-        fail: (err) => {
-          console.error('退出全屏模式失败:', err);
-        }
-      });
-    }
-  },
-
-  // 监听全屏状态变化
-  onFullscreenChange(e) {
-    const isFullscreen = e.detail.fullScreen;
-    console.log('全屏状态变化:', isFullscreen);
-    this.setData({
-      isFullscreen: isFullscreen
-    });
-  },
-
-  // 为绑定到模板上的函数提供便捷访问器
-  toggleLike: function(e) {
-    this.likeVideo();
-  },
   
-  toggleCollect: function(e) {
-    this.collectVideo();
+  // 加载更多评论
+  loadMoreComments: function() {
+    if (!this.data.commentHasMore || this.data.isCommentLoading) {
+      return;
+    }
+    
+    // 页码加1
+    this.setData({
+      commentPage: this.data.commentPage + 1
+    });
+    
+    // 加载更多评论
+    const videoId = this.data.videoData ? this.data.videoData.id : this.data.videoId;
+    if (videoId) {
+      this.fetchComments(videoId);
+    }
+  },
+
+  // 视频准备就绪事件处理
+  onVideoReady: function(e) {
+    console.log('视频准备就绪');
+    
+    // 更新状态
+    this.setData({
+      isVideoReady: true,
+      loadFailed: false,
+      showError: false,
+      errorInfo: ''
+    });
+    
+    // 视频就绪后自动播放（仅首次加载时）
+    if (this.data.isFirstPlay && this.data.autoPlay) {
+      console.log('首次加载，准备自动播放');
+      
+      setTimeout(() => {
+        if (this.videoContext) {
+          this.videoContext.play();
+          
+          this.setData({
+            isPlaying: true,
+            isFirstPlay: false
+          });
+          
+          // 报告视频播放事件
+          this.reportVideoPlay();
+        }
+      }, 100);
+    }
+  },
+
+  // 登录按钮点击事件 - 直接从用户点击获取
+  handleLoginButtonClick: function() {
+    console.log('用户点击了登录按钮，直接触发getUserProfile');
+    this.setData({ loginBtnLoading: true });
+    
+    // 步骤一：直接从用户点击获取用户个人信息
+    getUserProfileInfo()
+      .then(profileInfo => {
+        console.log('成功获取用户个人信息:', profileInfo);
+        
+        // 步骤二：获取登录凭证
+        return getLoginCode().then(loginCodeResult => {
+          console.log('成功获取登录凭证:', loginCodeResult);
+          
+          // 步骤三：完成登录过程
+          return completeLogin(loginCodeResult.code, profileInfo);
+        });
+      })
+      .then(loginResult => {
+        console.log('登录成功:', loginResult);
+        
+        // 使用令牌和用户信息
+        const token = loginResult.token || loginResult.jwt;
+        const userData = loginResult.user || loginResult.userInfo || {};
+        
+        if (!token) {
+          console.error('登录成功但未获得有效token!');
+          tt.showToast({
+            title: '登录失败: 未获得有效令牌',
+            icon: 'none'
+          });
+          
+          this.setData({
+            loginBtnLoading: false,
+            showLoginModal: false
+          });
+          return;
+        }
+        
+        // 保存token和用户信息
+        tt.setStorageSync('token', token);
+        const userInfoStr = typeof userData === 'object' ? JSON.stringify(userData) : userData;
+        tt.setStorageSync('userInfo', userInfoStr);
+        
+        // 更新UI状态
+        this.setData({
+          isLogin: true,
+          loginBtnLoading: false,
+          showLoginModal: false
+        });
+        
+        tt.showToast({
+          title: '登录成功',
+          icon: 'success',
+          duration: 1500
+        });
+        
+        // 执行之前等待的操作
+        setTimeout(() => {
+          const pendingAction = this.data.pendingAction;
+          if (pendingAction === 'like') {
+            this.doLikeOperation();
+          } else if (pendingAction === 'collect') {
+            this.doCollectOperation();
+          }
+          // 清除挂起的操作
+          this.setData({ pendingAction: null });
+        }, 100);
+      })
+      .catch(err => {
+        console.error('登录失败:', err);
+        
+        this.setData({
+          loginBtnLoading: false,
+          showLoginModal: false
+        });
+        
+        tt.showToast({
+          title: err.message || '登录失败，请重试',
+          icon: 'none'
+        });
+      });
+  },
+
+  // 关闭登录弹窗
+  closeLoginModal: function() {
+    console.log('用户取消登录');
+    this.setData({
+      showLoginModal: false,
+      pendingAction: null
+    });
   },
 }); 

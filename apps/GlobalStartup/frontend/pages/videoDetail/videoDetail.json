@@ -3,7 +3,9 @@
   "navigationBarBackgroundColor": "#000000",
   "navigationBarTextStyle": "white",
   "navigationStyle": "custom",
-  "usingComponents": {},
+  "usingComponents": {
+    "loginPopup": "../../components/loginPopup/loginPopup"
+  },
   "disableScroll": true,
   "backgroundColor": "#000000",
   "backgroundTextStyle": "light",

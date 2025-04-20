@@ -1,0 +1,11 @@
+<view class="login-popup" tt:if="{{show}}">
+  <view class="mask" catchtap="onClose" />
+  <view class="panel">
+    <image class="avatar" src="../../assets/img/default-avatar.png"/>
+    <text class="title">登录后体验完整功能</text>
+    <button class="login-btn" loading="{{btnLoading}}" catchtap="onLogin">
+      一键登录 / 授权
+    </button>
+    <view class="close" catchtap="onClose">×</view>
+  </view>
+</view> 
