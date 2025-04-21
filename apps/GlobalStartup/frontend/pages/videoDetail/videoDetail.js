@@ -259,9 +259,9 @@ Page({
             likes: likes
           };
           
-          // 使用状态专用函数更新，而不是直接调用saveVideoState
-          videoStateManager.setVideoLikeStatus(videoData.id, isLiked, likes, updatedData);
-          videoStateManager.setVideoCollectStatus(videoData.id, isCollected, likes, updatedData);
+          // 修正参数顺序，第三个参数应为完整视频数据对象
+          videoStateManager.setVideoLikeStatus(videoData.id, isLiked, updatedData);
+          videoStateManager.setVideoCollectStatus(videoData.id, isCollected, updatedData);
         }
         
         // 强制更新UI状态，解决可能的同步问题

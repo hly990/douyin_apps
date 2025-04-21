@@ -232,27 +232,31 @@ function setVideoCollectStatus(videoId, isCollected, videoData = {}) {
     const existingState = getVideoState(videoId) || {};
     console.log('更新收藏状态前的现有状态:', existingState);
     
-    // 优先保留现有点赞状态和点赞数，除非新数据明确提供了这些字段
-    const combinedVideoData = {
-      ...existingState,                                       // 先加载所有现有状态
-      ...videoData,                                          // 再用新数据覆盖
-      isCollected: isCollected,                              // 强制设置收藏状态
-      // 如果新数据没有提供点赞相关字段，则保留现有状态
-      isLiked: videoData.isLiked !== undefined ? videoData.isLiked : existingState.isLiked,
-      likes: videoData.likes !== undefined ? videoData.likes : existingState.likes
+    // 合并状态，优先保留本地(可能更新过)的点赞信息，避免被旧数据覆盖
+    const updatedState = {
+      ...videoData,
+      // 如果本地缓存存在更可靠的点赞状态/数量，则优先使用本地
+      isLiked: (existingState.isLiked !== undefined ? existingState.isLiked : videoData.isLiked),
+      likes: (existingState.likes !== undefined && (videoData.likes === undefined || existingState.likes > videoData.likes))
+        ? existingState.likes
+        : (videoData.likes !== undefined ? videoData.likes : 0),
+      // 收藏始终为 true
+      isCollected: true,
+      // 保留其他本地字段
+      ...existingState
     };
     
     // 确保我们保留现有的点赞状态和点赞数
     console.log('更新收藏时的点赞状态:', {
-      isLiked: combinedVideoData.isLiked,
-      likes: combinedVideoData.likes
+      isLiked: updatedState.isLiked,
+      likes: updatedState.likes
     });
     
     // 保存整合后的状态
-    saveVideoState(videoId, combinedVideoData);
+    saveVideoState(videoId, updatedState);
     
     // 通知订阅者
-    notifyStateChange(videoId, combinedVideoData);
+    notifyStateChange(videoId, updatedState);
     
     return true;
   } catch (error) {
@@ -335,15 +339,18 @@ function syncCollectionList(collectionList) {
         // 获取现有状态
         const currentState = getVideoState(videoId) || {};
         
-        // 合并状态，确保保留点赞状态
+        // 合并状态，优先保留本地(可能更新过)的点赞信息，避免被旧数据覆盖
         const updatedState = {
-          ...currentState,
           ...videoData,
-          // 强制设置收藏状态为true
+          // 如果本地缓存存在更可靠的点赞状态/数量，则优先使用本地
+          isLiked: (currentState.isLiked !== undefined ? currentState.isLiked : videoData.isLiked),
+          likes: (currentState.likes !== undefined && (videoData.likes === undefined || currentState.likes > videoData.likes))
+            ? currentState.likes
+            : (videoData.likes !== undefined ? videoData.likes : 0),
+          // 收藏始终为 true
           isCollected: true,
-          // 确保保留现有点赞状态和计数
-          isLiked: videoData.isLiked !== undefined ? videoData.isLiked : currentState.isLiked,
-          likes: videoData.likes !== undefined ? videoData.likes : currentState.likes
+          // 保留其他本地字段
+          ...currentState
         };
         
         // 保存状态

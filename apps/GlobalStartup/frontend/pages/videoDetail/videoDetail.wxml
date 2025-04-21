@@ -1,0 +1,62 @@
+<!--首先第一部分：视频播放区域-->
+<view class="video-container" style="height:{{videoHeight}}px;">
+  <!-- 视频播放器 -->
+  <video 
+    id="mainVideo"
+    class="video-player"
+    src="{{videoData.videoUrl}}"
+    autoplay="{{autoPlay}}"
+    loop="{{true}}"
+    object-fit="contain"
+    show-center-play-btn="{{false}}"
+    controls="{{false}}"
+    enable-progress-gesture="{{false}}"
+    show-fullscreen-btn="{{false}}"
+    show-play-btn="{{false}}"
+    bindplay="onVideoPlay"
+    bindpause="onVideoPause"
+    bindended="onVideoEnd"
+    binderror="onVideoError"
+    style="width:100%;height:100%"
+    wx:if="{{videoData && videoData.videoUrl && !showError}}"
+  ></video>
+  
+  <!-- 视频加载提示 -->
+  <view class="loading-container" wx:if="{{isLoading && !loadFailed}}">
+    <view class="loading-icon"></view>
+    <view class="loading-text">{{loadingText}}</view>
+  </view>
+  
+  <!-- 错误提示 -->
+  <view class="error-container" wx:if="{{showError || loadFailed}}">
+    <image class="error-icon" src="../../assets/icons/error.png" mode="aspectFit"></image>
+    <view class="error-text">{{errorInfo || '视频加载失败'}}</view>
+    <view class="retry-btn" bindtap="retryLoadVideo">点击重试</view>
+  </view>
+  
+  <!-- 返回按钮 -->
+  <view class="back-btn" style="top:{{statusBarHeight + 10}}px;" bindtap="handleBack">
+    <image src="../../assets/icons/back.png" mode="aspectFit"></image>
+  </view>
+  
+  <!-- 右侧交互按钮 -->
+  <view class="action-btns" wx:if="{{videoData}}">
+    <!-- 点赞按钮 -->
+    <view class="action-item" bindtap="toggleLike">
+      <image src="{{isLiked ? '../../assets/icons/liked.png' : '../../assets/icons/like.png'}}" mode="aspectFit"></image>
+      <text>{{likes || 0}}</text>
+    </view>
+    
+    <!-- 收藏按钮 -->
+    <view class="action-item" bindtap="toggleCollect">
+      <image src="{{isCollected ? '../../assets/icons/collected.png' : '../../assets/icons/collect.png'}}" mode="aspectFit"></image>
+      <text>收藏</text>
+    </view>
+  </view>
+</view>
+
+<!--底部视频信息区域-->
+<view class="video-info-container" wx:if="{{videoData}}">
+  <view class="video-title">{{videoData.title || '视频标题'}}</view>
+  <view class="video-desc">{{videoData.description || '这个视频没有描述'}}</view>
+</view> 
